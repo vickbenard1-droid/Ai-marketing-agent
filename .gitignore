@@ -1,0 +1,57 @@
+# ==== Secrets — never commit ====
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ==== Python / backend ====
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.venv/
+venv/
+env/
+ai-marketing-agent-backend.log
+
+# ==== Node / frontend ====
+node_modules/
+.next/
+out/
+build/
+dist/
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+
+# ==== Docker ====
+*.pid
+
+# ==== Databases (local dev artifacts) ====
+*.sqlite3
+*.db
+postgres-data/
+pgdata/
+
+# ==== OS / editor ====
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==== Misc ====
+*.log
+.cache/
