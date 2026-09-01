@@ -10,6 +10,7 @@ from app.oauth.base import OAuthNotConfiguredError, OAuthPlatformProvider
 from app.oauth.platforms.facebook import FacebookOAuthProvider
 from app.oauth.platforms.instagram import InstagramOAuthProvider
 from app.oauth.platforms.linkedin import LinkedInOAuthProvider
+from app.oauth.platforms.meta_ads import MetaAdsOAuthProvider
 from app.oauth.platforms.tiktok import TikTokOAuthProvider
 from app.oauth.platforms.x_platform import XOAuthProvider
 from app.oauth.platforms.youtube import YouTubeOAuthProvider
@@ -21,6 +22,7 @@ _REGISTRY: dict[str, type[OAuthPlatformProvider]] = {
     "x_account": XOAuthProvider,
     "tiktok_account": TikTokOAuthProvider,
     "youtube_channel": YouTubeOAuthProvider,
+    "meta_ads": MetaAdsOAuthProvider,
 }
 
 

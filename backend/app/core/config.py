@@ -98,6 +98,8 @@ class Settings(BaseSettings):
     # reject with a much more confusing error deep in the flow.
     FACEBOOK_CLIENT_ID: str = ""
     FACEBOOK_CLIENT_SECRET: str = ""
+    META_ADS_CLIENT_ID: str = ""
+    META_ADS_CLIENT_SECRET: str = ""
     INSTAGRAM_CLIENT_ID: str = ""
     INSTAGRAM_CLIENT_SECRET: str = ""
     LINKEDIN_CLIENT_ID: str = ""
