@@ -35,3 +35,10 @@ from app.models.seo_content import SEOContent  # noqa: F401
 from app.models.oauth_state import OAuthState  # noqa: F401
 from app.models.scheduled_post import ScheduledPost, ScheduledPostStatus  # noqa: F401
 from app.models.publishing_log import PublishingLog, PublishingLogOutcome  # noqa: F401
+from app.models.meta_ad_account import MetaAdAccount  # noqa: F401
+from app.models.ad_account_spend_limit import AdAccountSpendLimit  # noqa: F401
+from app.models.meta_campaign import MetaCampaign, MetaCampaignObjective, MetaCampaignStatus  # noqa: F401
+from app.models.meta_campaign_spend_limit import MetaCampaignSpendLimit  # noqa: F401
+from app.models.meta_ad_set import MetaAdSet, MetaAdSetStatus  # noqa: F401
+from app.models.meta_ad import MetaAd, MetaAdStatus  # noqa: F401
+from app.models.meta_insight_snapshot import MetaInsightSnapshot, MetaInsightEntityType  # noqa: F401
