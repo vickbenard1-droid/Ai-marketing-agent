@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.endpoints import (
     agents,
     ai_usage,
+    analytics,
     auth,
     business_profile,
     campaign_generation,
@@ -17,6 +18,7 @@ from app.api.v1.endpoints import (
     members,
     meta_ads,
     onboarding,
+    tracking,
     organizations,
     projects,
     scheduled_posts,
@@ -45,3 +47,5 @@ api_router.include_router(projects.router)
 api_router.include_router(connected_accounts.router)
 api_router.include_router(scheduled_posts.router)
 api_router.include_router(meta_ads.router)
+api_router.include_router(analytics.router)
+api_router.include_router(tracking.router)
