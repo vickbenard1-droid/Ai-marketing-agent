@@ -15,6 +15,7 @@ from app.api.v1.endpoints import (
     dashboard,
     experiments,
     members,
+    meta_ads,
     onboarding,
     organizations,
     projects,
@@ -43,6 +44,4 @@ api_router.include_router(content_assets.router)
 api_router.include_router(projects.router)
 api_router.include_router(connected_accounts.router)
 api_router.include_router(scheduled_posts.router)
-
-# Future weeks will add:
-# api_router.include_router(connected_accounts.router)
+api_router.include_router(meta_ads.router)
