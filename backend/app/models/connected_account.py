@@ -40,6 +40,8 @@ class PlatformType(str, enum.Enum):
     WOOCOMMERCE = "woocommerce"
     GOOGLE_ANALYTICS = "google_analytics"
     GOOGLE_SEARCH_CONSOLE = "google_search_console"
+    WEBSITE_TRACKING = "website_tracking"
+    CRM = "crm"
 
     # --- Week 6: organic social posting connections ---
     # Deliberately distinct from the ad-account values above even where

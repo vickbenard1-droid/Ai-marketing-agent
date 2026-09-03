@@ -42,3 +42,8 @@ from app.models.meta_campaign_spend_limit import MetaCampaignSpendLimit  # noqa:
 from app.models.meta_ad_set import MetaAdSet, MetaAdSetStatus  # noqa: F401
 from app.models.meta_ad import MetaAd, MetaAdStatus  # noqa: F401
 from app.models.meta_insight_snapshot import MetaInsightSnapshot, MetaInsightEntityType  # noqa: F401
+from app.models.metric_snapshot import MetricSnapshot, MetricEntityType  # noqa: F401
+from app.models.conversion_type import ConversionType, ConversionCategory  # noqa: F401
+from app.models.conversion_event import ConversionEvent  # noqa: F401
+from app.models.website_tracking_key import WebsiteTrackingKey, generate_tracking_key  # noqa: F401
+from app.models.website_tracking_event import WebsiteTrackingEvent, WebsiteTrackingEventType  # noqa: F401
