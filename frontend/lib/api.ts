@@ -1197,3 +1197,169 @@ export function acceptRecommendation(accessToken: string, organizationId: string
     organizationId,
   });
 }
+
+// ---- Meta Ads (Week 7) --------------------------------------------------------
+
+export interface MetaAdAccountPublic {
+  id: string;
+  external_ad_account_id: string;
+  name: string;
+  currency: string;
+  timezone_name: string;
+}
+
+export function listMetaAdAccounts(accessToken: string, organizationId: string) {
+  return apiFetch<MetaAdAccountPublic[]>("/meta-ads/ad-accounts", { accessToken, organizationId });
+}
+
+export function connectMetaAdAccount(
+  accessToken: string,
+  organizationId: string,
+  data: { connected_account_id: string; external_ad_account_id: string; name: string; currency: string; timezone_name: string }
+) {
+  return apiFetch<MetaAdAccountPublic>("/meta-ads/ad-accounts", {
+    method: "POST",
+    accessToken,
+    organizationId,
+    body: JSON.stringify(data),
+  });
+}
+
+export interface AdAccountSpendLimitPublic {
+  meta_ad_account_id: string;
+  daily_spend_limit_cents: number;
+  is_emergency_stopped: boolean;
+  emergency_stop_reason: string | null;
+}
+
+export function getSpendLimit(accessToken: string, organizationId: string, adAccountId: string) {
+  return apiFetch<AdAccountSpendLimitPublic | null>(`/meta-ads/ad-accounts/${adAccountId}/spend-limit`, {
+    accessToken,
+    organizationId,
+  });
+}
+
+export function setSpendLimit(accessToken: string, organizationId: string, adAccountId: string, dailySpendLimitCents: number) {
+  return apiFetch<AdAccountSpendLimitPublic>(`/meta-ads/ad-accounts/${adAccountId}/spend-limit`, {
+    method: "PUT",
+    accessToken,
+    organizationId,
+    body: JSON.stringify({ daily_spend_limit_cents: dailySpendLimitCents }),
+  });
+}
+
+export function setEmergencyStop(
+  accessToken: string,
+  organizationId: string,
+  adAccountId: string,
+  data: { stopped: boolean; reason?: string }
+) {
+  return apiFetch<AdAccountSpendLimitPublic>(`/meta-ads/ad-accounts/${adAccountId}/emergency-stop`, {
+    method: "POST",
+    accessToken,
+    organizationId,
+    body: JSON.stringify(data),
+  });
+}
+
+export type MetaCampaignObjective =
+  | "OUTCOME_AWARENESS"
+  | "OUTCOME_TRAFFIC"
+  | "OUTCOME_ENGAGEMENT"
+  | "OUTCOME_LEADS"
+  | "OUTCOME_SALES"
+  | "OUTCOME_APP_PROMOTION";
+export type MetaCampaignStatus = "ACTIVE" | "PAUSED" | "DELETED" | "ARCHIVED";
+
+export interface MetaCampaignPublic {
+  id: string;
+  name: string;
+  objective: MetaCampaignObjective;
+  status: MetaCampaignStatus;
+  daily_budget_cents: number | null;
+  lifetime_budget_cents: number | null;
+  external_campaign_id: string | null;
+}
+
+export function listMetaCampaigns(accessToken: string, organizationId: string) {
+  return apiFetch<MetaCampaignPublic[]>("/meta-ads/meta-campaigns", { accessToken, organizationId });
+}
+
+export interface MetaInsightSnapshotPublic {
+  date: string;
+  impressions: number;
+  clicks: number;
+  spend_cents: number;
+  reach: number | null;
+  leads_count: number | null;
+  purchases_count: number | null;
+  revenue_cents: number | null;
+  currency: string;
+}
+
+export function getMetaCampaignInsights(accessToken: string, organizationId: string, metaCampaignId: string) {
+  return apiFetch<MetaInsightSnapshotPublic[]>(`/meta-ads/meta-campaigns/${metaCampaignId}/insights`, {
+    accessToken,
+    organizationId,
+  });
+}
+
+export function requestStatusChange(accessToken: string, organizationId: string, metaCampaignId: string, newStatus: "ACTIVE" | "PAUSED") {
+  return apiFetch<ApprovalRequestPublic>(`/meta-ads/meta-campaigns/${metaCampaignId}/request-status-change`, {
+    method: "POST",
+    accessToken,
+    organizationId,
+    body: JSON.stringify({ new_status: newStatus }),
+  });
+}
+
+export function requestBudgetChange(accessToken: string, organizationId: string, metaCampaignId: string, newDailyBudgetCents: number) {
+  return apiFetch<ApprovalRequestPublic>(`/meta-ads/meta-campaigns/${metaCampaignId}/request-budget-change`, {
+    method: "POST",
+    accessToken,
+    organizationId,
+    body: JSON.stringify({ new_daily_budget_cents: newDailyBudgetCents }),
+  });
+}
+
+export type ApprovalActionType = "campaign_budget_change" | "campaign_pause" | "campaign_launch" | "content_publish" | "ad_copy_deploy";
+export type ApprovalStatus = "pending" | "approved" | "rejected" | "executed" | "expired";
+
+export interface ApprovalRequestPublic {
+  id: string;
+  action_type: ApprovalActionType;
+  action_payload: Record<string, unknown>;
+  status: ApprovalStatus;
+  requested_by_user_id: string | null;
+  reviewed_by_user_id: string | null;
+  reviewed_at: string | null;
+  review_notes: string | null;
+  created_at: string;
+}
+
+export function listApprovalRequests(accessToken: string, organizationId: string, statusFilter?: ApprovalStatus) {
+  const query = statusFilter ? `?status=${statusFilter}` : "";
+  return apiFetch<ApprovalRequestPublic[]>(`/meta-ads/approval-requests${query}`, { accessToken, organizationId });
+}
+
+export function reviewApprovalRequest(
+  accessToken: string,
+  organizationId: string,
+  approvalRequestId: string,
+  data: { approve: boolean; review_notes?: string }
+) {
+  return apiFetch<ApprovalRequestPublic>(`/meta-ads/approval-requests/${approvalRequestId}/review`, {
+    method: "POST",
+    accessToken,
+    organizationId,
+    body: JSON.stringify(data),
+  });
+}
+
+export function executeApprovalRequest(accessToken: string, organizationId: string, approvalRequestId: string) {
+  return apiFetch<MetaCampaignPublic>(`/meta-ads/approval-requests/${approvalRequestId}/execute`, {
+    method: "POST",
+    accessToken,
+    organizationId,
+  });
+}

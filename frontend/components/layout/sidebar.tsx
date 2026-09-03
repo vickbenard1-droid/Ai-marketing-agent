@@ -13,15 +13,16 @@ import {
   Plug,
   Settings,
   Users,
+  CircleDollarSign,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrgSwitcher } from "./org-switcher";
 
-// Every item below except Dashboard, AI Assistant, AI Tools, Team, and
-// Settings is a placeholder route for functionality that arrives in a
-// later week (see project scope doc). They're shown disabled rather than
-// omitted so the information architecture of the full product is visible
-// from day one.
+// Every item below except Dashboard, AI Assistant, AI Tools, Campaigns,
+// Content, Schedule, Meta Ads, Team, and Settings is a placeholder route
+// for functionality that arrives in a later week (see project scope doc).
+// They're shown disabled rather than omitted so the information
+// architecture of the full product is visible from day one.
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, enabled: true },
   { label: "AI Assistant", href: "/chat", icon: Sparkles, enabled: true },
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { label: "Campaigns", href: "/campaigns", icon: Megaphone, enabled: true },
   { label: "Content", href: "/content", icon: FileText, enabled: true },
   { label: "Schedule", href: "/schedule", icon: CalendarClock, enabled: true },
+  { label: "Meta Ads", href: "/meta-ads", icon: CircleDollarSign, enabled: true },
   { label: "Analytics", href: "/analytics", icon: BarChart3, enabled: false },
   { label: "Integrations", href: "/integrations", icon: Plug, enabled: true },
   { label: "Team", href: "/team", icon: Users, enabled: true },
