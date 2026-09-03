@@ -31,7 +31,7 @@ const NAV_ITEMS = [
   { label: "Content", href: "/content", icon: FileText, enabled: true },
   { label: "Schedule", href: "/schedule", icon: CalendarClock, enabled: true },
   { label: "Meta Ads", href: "/meta-ads", icon: CircleDollarSign, enabled: true },
-  { label: "Analytics", href: "/analytics", icon: BarChart3, enabled: false },
+  { label: "Analytics", href: "/analytics", icon: BarChart3, enabled: true },
   { label: "Integrations", href: "/integrations", icon: Plug, enabled: true },
   { label: "Team", href: "/team", icon: Users, enabled: true },
 ] as const;

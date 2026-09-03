@@ -1363,3 +1363,81 @@ export function executeApprovalRequest(accessToken: string, organizationId: stri
     organizationId,
   });
 }
+
+// ---- Analytics (Week 8) --------------------------------------------------------
+
+export interface RawTotalsPublic {
+  impressions: number;
+  clicks: number;
+  spend_cents: number;
+  leads_count: number | null;
+  purchases_count: number | null;
+  revenue_cents: number | null;
+  reach: number | null;
+}
+
+export interface DerivedMetricsPublic {
+  ctr: number | null;
+  cpc_cents: number | null;
+  cpm_cents: number | null;
+  cost_per_lead_cents: number | null;
+  cpa_cents: number | null;
+  roas: number | null;
+  conversion_rate: number | null;
+}
+
+export interface DashboardResponse {
+  raw: RawTotalsPublic;
+  derived: DerivedMetricsPublic;
+}
+
+export function getDashboard(accessToken: string, organizationId: string, dateStart: string, dateStop: string) {
+  return apiFetch<DashboardResponse>(`/analytics/dashboard?date_start=${dateStart}&date_stop=${dateStop}`, {
+    accessToken,
+    organizationId,
+  });
+}
+
+export type ConversionCategory = "lead" | "qualification" | "engagement" | "purchase" | "subscription";
+
+export interface ConversionTypePublic {
+  id: string;
+  name: string;
+  category: ConversionCategory;
+  description: string | null;
+  counts_as_revenue: boolean;
+  is_active: boolean;
+}
+
+export function listConversionTypes(accessToken: string, organizationId: string) {
+  return apiFetch<ConversionTypePublic[]>("/analytics/conversion-types", { accessToken, organizationId });
+}
+
+export function createConversionType(
+  accessToken: string,
+  organizationId: string,
+  data: { name: string; category: ConversionCategory; description?: string; counts_as_revenue: boolean }
+) {
+  return apiFetch<ConversionTypePublic>("/analytics/conversion-types", {
+    method: "POST",
+    accessToken,
+    organizationId,
+    body: JSON.stringify(data),
+  });
+}
+
+export interface TrackingKeyPublic {
+  key: string;
+}
+
+export function getTrackingKey(accessToken: string, organizationId: string) {
+  return apiFetch<TrackingKeyPublic>("/analytics/tracking-key", { accessToken, organizationId });
+}
+
+export function regenerateTrackingKey(accessToken: string, organizationId: string) {
+  return apiFetch<TrackingKeyPublic>("/analytics/tracking-key/regenerate", {
+    method: "POST",
+    accessToken,
+    organizationId,
+  });
+}
