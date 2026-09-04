@@ -16,6 +16,7 @@ import app.optimization.decision_engine as decision_engine
 import app.optimization.execution as execution
 from app.analytics.metrics import compute_all
 from app.analytics.service import rollup_totals
+from app.leads.sales_agent_data import average_lead_score_for_campaign
 from app.models.campaign_autonomy_settings import CampaignWhitelist
 from app.models.connected_account import PlatformType
 from app.models.meta_campaign import MetaCampaign
@@ -41,9 +42,13 @@ def scan_campaign(db, *, organization_id: uuid.UUID, meta_campaign: MetaCampaign
     current_derived = compute_all(current_totals)
     baseline_derived = compute_all(baseline_totals)
 
+    current_avg_score, current_lead_count = average_lead_score_for_campaign(db, organization_id=organization_id, meta_campaign_id=meta_campaign.id, date_start=current_start, date_stop=today)
+    baseline_avg_score, _ = average_lead_score_for_campaign(db, organization_id=organization_id, meta_campaign_id=meta_campaign.id, date_start=baseline_start, date_stop=baseline_stop)
+
     signals = evaluate_all(
         current_totals=current_totals, current_derived=current_derived, baseline_totals=baseline_totals, baseline_derived=baseline_derived,
         daily_budget_cents=meta_campaign.daily_budget_cents, campaign_objective=meta_campaign.objective.value,
+        average_lead_score=current_avg_score, baseline_average_lead_score=baseline_avg_score, lead_count=current_lead_count,
     )
 
     result = CampaignScanResult(meta_campaign_id=str(meta_campaign.id))

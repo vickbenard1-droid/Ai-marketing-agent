@@ -127,8 +127,27 @@ def evaluate_revenue(current: RawTotals, baseline: Optional[RawTotals]) -> Signa
     return SignalEvaluation("Revenue", SignalStatus.NORMAL, f"Revenue is ${current.revenue_cents/100:.2f}", value=current.revenue_cents, baseline_value=baseline.revenue_cents)
 
 
-def evaluate_lead_quality() -> SignalEvaluation:
-    return SignalEvaluation("Lead quality", SignalStatus.UNAVAILABLE, "No lead-quality scoring pipeline exists yet")
+def evaluate_lead_quality(average_lead_score: Optional[float] = None, baseline_average_lead_score: Optional[float] = None, lead_count: int = 0) -> SignalEvaluation:
+    """
+    As of Week 10, real when lead data is available -
+    average_lead_score is the mean of real Lead.score (see
+    app.leads.scoring) for this campaign's leads in the current period,
+    computed by the caller (app.optimization.orchestrator, via
+    app.leads.sales_agent_data.average_lead_score_for_campaign) and
+    passed in here, since this module deliberately has no DB access of
+    its own.
+    """
+    if average_lead_score is None or lead_count == 0:
+        return SignalEvaluation("Lead quality", SignalStatus.UNAVAILABLE, "No leads are attributed to this campaign in this period yet")
+    if baseline_average_lead_score is not None and baseline_average_lead_score > 0:
+        drop_percent = ((baseline_average_lead_score - average_lead_score) / baseline_average_lead_score) * 100
+        if drop_percent >= 30:
+            return SignalEvaluation("Lead quality", SignalStatus.TRIGGERED, f"Average lead score dropped {drop_percent:.1f}% ({baseline_average_lead_score:.0f} -> {average_lead_score:.0f}) across {lead_count} lead(s)", value=average_lead_score, baseline_value=baseline_average_lead_score)
+    if average_lead_score < 25:
+        return SignalEvaluation("Lead quality", SignalStatus.TRIGGERED, f"Average lead score is {average_lead_score:.0f}/100 across {lead_count} lead(s)", value=average_lead_score)
+    if average_lead_score < 45:
+        return SignalEvaluation("Lead quality", SignalStatus.CONCERNING, f"Average lead score is {average_lead_score:.0f}/100 across {lead_count} lead(s)", value=average_lead_score)
+    return SignalEvaluation("Lead quality", SignalStatus.NORMAL, f"Average lead score is {average_lead_score:.0f}/100 across {lead_count} lead(s)", value=average_lead_score)
 
 
 def evaluate_campaign_objective(objective: str, current: DerivedMetrics) -> SignalEvaluation:
@@ -147,6 +166,9 @@ def evaluate_all(
     baseline_derived: Optional[DerivedMetrics],
     daily_budget_cents: Optional[int],
     campaign_objective: str,
+    average_lead_score: Optional[float] = None,
+    baseline_average_lead_score: Optional[float] = None,
+    lead_count: int = 0,
 ) -> list:
     return [
         evaluate_ctr(current_derived, baseline_derived),
@@ -158,6 +180,6 @@ def evaluate_all(
         evaluate_spend(current_totals, daily_budget_cents),
         evaluate_frequency(),
         evaluate_revenue(current_totals, baseline_totals),
-        evaluate_lead_quality(),
+        evaluate_lead_quality(average_lead_score, baseline_average_lead_score, lead_count),
         evaluate_campaign_objective(campaign_objective, current_derived),
     ]

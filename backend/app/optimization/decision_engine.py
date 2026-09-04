@@ -42,6 +42,7 @@ def _build_available_action_types(signal_name: str) -> list:
         "ROAS": [OptimizationActionType.REDUCE_BUDGET, OptimizationActionType.PAUSE_AD],
         "Spend": [OptimizationActionType.REDUCE_BUDGET, OptimizationActionType.PAUSE_AD],
         "Revenue": [OptimizationActionType.INCREASE_BUDGET, OptimizationActionType.DUPLICATE_WINNING_VARIATION],
+        "Lead quality": [OptimizationActionType.CHANGE_AUDIENCE, OptimizationActionType.CHANGE_HEADLINE, OptimizationActionType.PAUSE_AD],
         "Campaign objective": [OptimizationActionType.CHANGE_CAMPAIGN_STRUCTURE],
     }
     return mapping.get(signal_name, [OptimizationActionType.PAUSE_AD, OptimizationActionType.REDUCE_BUDGET])
