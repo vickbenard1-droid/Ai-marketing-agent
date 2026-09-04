@@ -1441,3 +1441,95 @@ export function regenerateTrackingKey(accessToken: string, organizationId: strin
     organizationId,
   });
 }
+
+// ---- Optimization agent (Week 9) --------------------------------------------------------
+
+export type AutonomyLevel = "manual" | "assisted" | "autonomous";
+export type OptimizationActionType =
+  | "pause_ad" | "reduce_budget" | "increase_budget" | "change_audience" | "create_new_creative"
+  | "change_headline" | "change_cta" | "duplicate_winning_variation" | "start_retargeting" | "change_campaign_structure";
+export type DecisionRisk = "low" | "medium" | "high";
+export type DecisionStatus = "recommended" | "approved" | "rejected" | "auto_approved" | "executed" | "execution_failed" | "expired";
+
+export const AUTONOMY_LEVEL_LABELS: Record<AutonomyLevel, string> = {
+  manual: "Manual", assisted: "Assisted", autonomous: "Autonomous",
+};
+
+export const ACTION_TYPE_LABELS: Record<OptimizationActionType, string> = {
+  pause_ad: "Pause ad", reduce_budget: "Reduce budget", increase_budget: "Increase budget",
+  change_audience: "Change audience", create_new_creative: "Create new creative", change_headline: "Change headline",
+  change_cta: "Change CTA", duplicate_winning_variation: "Duplicate winning variation",
+  start_retargeting: "Start retargeting", change_campaign_structure: "Change campaign structure",
+};
+
+export interface AutonomySettingsPublic {
+  meta_campaign_id: string;
+  autonomy_level: AutonomyLevel;
+  max_daily_spend_cents: number | null;
+  max_budget_increase_percent: number | null;
+  max_automated_actions_per_day: number | null;
+  auto_executable_action_types: string[];
+  is_emergency_stopped: boolean;
+  emergency_stop_reason: string | null;
+}
+
+export function getAutonomySettings(accessToken: string, organizationId: string, metaCampaignId: string) {
+  return apiFetch<AutonomySettingsPublic>(`/optimization/meta-campaigns/${metaCampaignId}/autonomy-settings`, { accessToken, organizationId });
+}
+
+export function setAutonomySettings(
+  accessToken: string, organizationId: string, metaCampaignId: string,
+  data: { autonomy_level: AutonomyLevel; max_daily_spend_cents?: number | null; max_budget_increase_percent?: number | null; max_automated_actions_per_day?: number | null; auto_executable_action_types: string[] }
+) {
+  return apiFetch<AutonomySettingsPublic>(`/optimization/meta-campaigns/${metaCampaignId}/autonomy-settings`, { method: "PUT", accessToken, organizationId, body: JSON.stringify(data) });
+}
+
+export function setOptimizationEmergencyStop(accessToken: string, organizationId: string, metaCampaignId: string, data: { stopped: boolean; reason?: string | null }) {
+  return apiFetch<AutonomySettingsPublic>(`/optimization/meta-campaigns/${metaCampaignId}/emergency-stop`, { method: "POST", accessToken, organizationId, body: JSON.stringify(data) });
+}
+
+export function getWhitelistStatus(accessToken: string, organizationId: string, metaCampaignId: string) {
+  return apiFetch<{ id: string; meta_campaign_id: string } | null>(`/optimization/meta-campaigns/${metaCampaignId}/whitelist`, { accessToken, organizationId });
+}
+
+export function addToWhitelist(accessToken: string, organizationId: string, metaCampaignId: string) {
+  return apiFetch<{ id: string; meta_campaign_id: string }>(`/optimization/meta-campaigns/${metaCampaignId}/whitelist`, { method: "POST", accessToken, organizationId });
+}
+
+export function removeFromWhitelist(accessToken: string, organizationId: string, metaCampaignId: string) {
+  return apiFetch<void>(`/optimization/meta-campaigns/${metaCampaignId}/whitelist`, { method: "DELETE", accessToken, organizationId });
+}
+
+export interface OptimizationDecisionPublic {
+  id: string;
+  meta_campaign_id: string;
+  observation: string;
+  evidence_json: Record<string, unknown>;
+  action_type: OptimizationActionType;
+  proposed_action: string;
+  action_payload: Record<string, unknown>;
+  expected_outcome: string;
+  confidence: number;
+  risk: DecisionRisk;
+  required_permission: string;
+  status: DecisionStatus;
+  resulting_approval_request_id: string | null;
+  outcome_json: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export function listOptimizationDecisions(accessToken: string, organizationId: string, filters?: { meta_campaign_id?: string; status?: DecisionStatus }) {
+  const params = new URLSearchParams();
+  if (filters?.meta_campaign_id) params.set("meta_campaign_id", filters.meta_campaign_id);
+  if (filters?.status) params.set("status", filters.status);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<OptimizationDecisionPublic[]>(`/optimization/decisions${query}`, { accessToken, organizationId });
+}
+
+export function reviewOptimizationDecision(accessToken: string, organizationId: string, decisionId: string, data: { approve: boolean; new_daily_budget_cents?: number | null }) {
+  return apiFetch<OptimizationDecisionPublic>(`/optimization/decisions/${decisionId}/review`, { method: "POST", accessToken, organizationId, body: JSON.stringify(data) });
+}
+
+export function scanCampaignForOptimization(accessToken: string, organizationId: string, metaCampaignId: string) {
+  return apiFetch<{ meta_campaign_id: string; decisions_created: string[]; errors: string[] }>(`/optimization/meta-campaigns/${metaCampaignId}/scan`, { method: "POST", accessToken, organizationId });
+}
