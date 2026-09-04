@@ -47,3 +47,11 @@ from app.models.conversion_type import ConversionType, ConversionCategory  # noq
 from app.models.conversion_event import ConversionEvent  # noqa: F401
 from app.models.website_tracking_key import WebsiteTrackingKey, generate_tracking_key  # noqa: F401
 from app.models.website_tracking_event import WebsiteTrackingEvent, WebsiteTrackingEventType  # noqa: F401
+from app.models.campaign_autonomy_settings import CampaignAutonomySettings, CampaignWhitelist, AutonomyLevel  # noqa: F401
+from app.models.optimization_decision import (  # noqa: F401
+    OptimizationDecision,
+    OptimizationActionType,
+    DecisionRisk,
+    DecisionStatus,
+)
+from app.models.automated_action_log import AutomatedActionLog  # noqa: F401
