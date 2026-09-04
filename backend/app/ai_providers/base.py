@@ -107,6 +107,7 @@ class AITaskType(str, enum.Enum):
     CONTENT_GENERATION = "content_generation"
     IMAGE_ANALYSIS = "image_analysis"
     POSTING_RECOMMENDATION = "posting_recommendation"
+    OPTIMIZATION_DECISION = "optimization_decision"
 
 
 class AIProvider(ABC):

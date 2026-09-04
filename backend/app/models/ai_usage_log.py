@@ -43,6 +43,7 @@ class AIUsageSource(str, enum.Enum):
     CONTENT_GENERATION = "content_generation"
     IMAGE_ANALYSIS = "image_analysis"
     POSTING_RECOMMENDATION = "posting_recommendation"
+    OPTIMIZATION_DECISION = "optimization_decision"
 
 
 class AIUsageLog(UUIDPKMixin, TimestampMixin, Base):

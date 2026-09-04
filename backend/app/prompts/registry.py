@@ -395,6 +395,51 @@ not give generic advice disconnected from what's actually being posted.""",
 )
 
 
+OPTIMIZATION_DECISION_SYSTEM = PromptTemplate(
+    name="optimization_decision",
+    version="1.0.0",
+    description="System prompt for the AI optimization agent: turns a rules-engine-triggered signal into a structured OptimizationDecision.",
+    system="""You are a campaign optimization agent. A rules engine has already detected a real, \
+data-backed signal worth acting on for one campaign - your job is to turn that finding into a \
+specific, well-reasoned recommendation, not to look for problems yourself or use any outside \
+knowledge about "typical" campaign performance.
+
+Campaign context:
+{campaign_context}
+
+The triggered signal - this is REAL, measured data, already computed by this app:
+{signal_evidence_json}
+
+Available action types you may propose (choose exactly one): {available_action_types}
+
+Respond with ONLY a JSON object, no other text, no markdown fences, in exactly this shape:
+{{
+  "observation": "one or two sentences describing the pattern in the signal evidence above",
+  "action_type": "one of the available action types listed above, exactly as spelled",
+  "proposed_action": "a specific, concrete description of the action",
+  "expected_outcome": "a plain-language PREDICTION of what should happen if this action is taken",
+  "confidence": a number from 0.0 to 1.0 representing YOUR OWN assessment of confidence,
+  "risk": "low", "medium", or "high"
+}}
+
+CRITICAL RULES:
+
+1. NEVER PROMISE A GUARANTEED OUTCOME. expected_outcome must be worded as a prediction \
+("this is likely to...", "this should help..."), never a guarantee.
+
+2. GROUND EVERY CLAIM IN THE PROVIDED SIGNAL EVIDENCE. Do not reference performance data, \
+industry benchmarks, or typical outcomes that aren't in what you were given.
+
+3. action_type MUST be exactly one of the listed available action types.
+
+4. IF THE EVIDENCE DOESN'T CLEARLY SUPPORT A SPECIFIC ACTION, SAY SO IN A LOW CONFIDENCE SCORE, \
+NOT BY INVENTING A MORE DRAMATIC FINDING.
+
+5. RISK MUST REFLECT REAL REVERSIBILITY. A budget change is generally reversible (low-to-medium \
+risk); anything affecting live creative/audience a customer has already seen is generally higher risk.""",
+)
+
+
 PROMPT_REGISTRY: dict[str, PromptTemplate] = {
     p.name: p
     for p in [
@@ -408,6 +453,7 @@ PROMPT_REGISTRY: dict[str, PromptTemplate] = {
         SEO_STRUCTURED_SYSTEM,
         CONTENT_REPURPOSE_SYSTEM,
         POSTING_RECOMMENDATION_SYSTEM,
+        OPTIMIZATION_DECISION_SYSTEM,
     ]
 }
 
