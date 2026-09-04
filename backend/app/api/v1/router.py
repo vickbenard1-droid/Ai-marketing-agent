@@ -18,6 +18,7 @@ from app.api.v1.endpoints import (
     members,
     meta_ads,
     onboarding,
+    optimization,
     tracking,
     organizations,
     projects,
@@ -49,3 +50,4 @@ api_router.include_router(scheduled_posts.router)
 api_router.include_router(meta_ads.router)
 api_router.include_router(analytics.router)
 api_router.include_router(tracking.router)
+api_router.include_router(optimization.router)
