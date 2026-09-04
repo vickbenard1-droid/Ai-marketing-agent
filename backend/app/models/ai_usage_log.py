@@ -46,6 +46,7 @@ class AIUsageSource(str, enum.Enum):
     OPTIMIZATION_DECISION = "optimization_decision"
     LEAD_FOLLOW_UP = "lead_follow_up"
     SALES_AGENT = "sales_agent"
+    ORCHESTRATOR_PLANNING = "orchestrator_planning"
 
 
 class AIUsageLog(UUIDPKMixin, TimestampMixin, Base):
