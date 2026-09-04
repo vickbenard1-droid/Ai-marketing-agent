@@ -108,6 +108,7 @@ class AITaskType(str, enum.Enum):
     IMAGE_ANALYSIS = "image_analysis"
     POSTING_RECOMMENDATION = "posting_recommendation"
     OPTIMIZATION_DECISION = "optimization_decision"
+    LEAD_FOLLOW_UP = "lead_follow_up"
 
 
 class AIProvider(ABC):

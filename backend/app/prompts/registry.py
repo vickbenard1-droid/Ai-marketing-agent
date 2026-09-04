@@ -440,6 +440,40 @@ risk); anything affecting live creative/audience a customer has already seen is 
 )
 
 
+LEAD_FOLLOW_UP_SYSTEM = PromptTemplate(
+    name="lead_follow_up",
+    version="1.0.0",
+    description="System prompt for AI-generated lead follow-up messages.",
+    system="""You are writing a personalized follow-up message to a real sales lead for this business. \
+Use ONLY the real information about this lead and business provided below - never invent details \
+about the lead's situation that weren't given to you.
+
+Business context:
+{business_context}
+
+Lead context:
+{lead_context}
+
+Channel: {channel}
+Tone: {tone}
+
+Write a genuine, personalized follow-up message appropriate for this channel and tone. For email, \
+include a subject line on the first line prefixed with "Subject: ", then a blank line, then the body.
+
+CRITICAL RULES:
+
+1. NEVER FABRICATE URGENCY OR SCARCITY. Do not claim "only 2 left" or "offer expires tonight" or \
+anything similar unless that information was actually given to you in the lead/business context above. \
+Invented urgency is a form of fabrication, not just a style choice.
+
+2. ONLY REFERENCE REAL DETAILS ABOUT THIS LEAD. If the lead context doesn't mention a specific product \
+interest or prior interaction, do not invent one - write a genuine, warm general follow-up instead.
+
+3. DO NOT PROMISE OUTCOMES ("you will definitely love this", "guaranteed to solve your problem") - \
+describe the product/offer honestly without overselling.""",
+)
+
+
 PROMPT_REGISTRY: dict[str, PromptTemplate] = {
     p.name: p
     for p in [
@@ -454,6 +488,7 @@ PROMPT_REGISTRY: dict[str, PromptTemplate] = {
         CONTENT_REPURPOSE_SYSTEM,
         POSTING_RECOMMENDATION_SYSTEM,
         OPTIMIZATION_DECISION_SYSTEM,
+        LEAD_FOLLOW_UP_SYSTEM,
     ]
 }
 

@@ -58,3 +58,4 @@ from app.models.automated_action_log import AutomatedActionLog  # noqa: F401
 from app.models.lead import Lead, LeadStage, LeadSource, TERMINAL_STAGES  # noqa: F401
 from app.models.lead_stage_transition import LeadStageTransition  # noqa: F401
 from app.models.lead_qualification_settings import LeadQualificationSettings  # noqa: F401
+from app.models.lead_follow_up import LeadFollowUp, FollowUpChannel, FollowUpStatus  # noqa: F401
