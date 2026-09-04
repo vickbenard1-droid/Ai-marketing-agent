@@ -59,3 +59,6 @@ from app.models.lead import Lead, LeadStage, LeadSource, TERMINAL_STAGES  # noqa
 from app.models.lead_stage_transition import LeadStageTransition  # noqa: F401
 from app.models.lead_qualification_settings import LeadQualificationSettings  # noqa: F401
 from app.models.lead_follow_up import LeadFollowUp, FollowUpChannel, FollowUpStatus  # noqa: F401
+from app.models.orchestration_run import OrchestrationRun, OrchestrationRunStatus  # noqa: F401
+from app.models.agent_activity_log import AgentActivityLog, ActivityStatus  # noqa: F401
+from app.models.agent_decision import AgentDecision, DecisionOutcome  # noqa: F401
