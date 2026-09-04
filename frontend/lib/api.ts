@@ -1533,3 +1533,156 @@ export function reviewOptimizationDecision(accessToken: string, organizationId: 
 export function scanCampaignForOptimization(accessToken: string, organizationId: string, metaCampaignId: string) {
   return apiFetch<{ meta_campaign_id: string; decisions_created: string[]; errors: string[] }>(`/optimization/meta-campaigns/${metaCampaignId}/scan`, { method: "POST", accessToken, organizationId });
 }
+
+// ---- Leads (Week 10) --------------------------------------------------------
+
+export type LeadSource = "meta_leads" | "website_form" | "landing_page" | "shopify" | "woocommerce" | "crm" | "manual";
+export type LeadStage = "new_lead" | "contacted" | "qualified" | "interested" | "negotiation" | "won" | "lost";
+export type FollowUpChannel = "email" | "whatsapp" | "sms" | "crm";
+export type FollowUpStatus = "drafted" | "sent" | "failed" | "not_sendable";
+
+export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
+  meta_leads: "Meta Lead Ad", website_form: "Website form", landing_page: "Landing page",
+  shopify: "Shopify", woocommerce: "WooCommerce", crm: "CRM", manual: "Manual",
+};
+
+export const LEAD_STAGE_LABELS: Record<LeadStage, string> = {
+  new_lead: "New Lead", contacted: "Contacted", qualified: "Qualified",
+  interested: "Interested", negotiation: "Negotiation", won: "Won", lost: "Lost",
+};
+
+export const LEAD_STAGE_ORDER: LeadStage[] = ["new_lead", "contacted", "qualified", "interested", "negotiation", "won", "lost"];
+
+export interface LeadPublic {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  source: LeadSource;
+  source_external_id: string | null;
+  attributed_meta_campaign_id: string | null;
+  stage: LeadStage;
+  product_interest: string | null;
+  disclosed_budget_cents: number | null;
+  score: number | null;
+  score_factors_json: { factors: { name: string; points: number; reason: string }[]; excluded_factors_note: string } | null;
+  assigned_to_user_id: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function listLeads(accessToken: string, organizationId: string, filters?: { stage?: LeadStage; source?: LeadSource; assigned_to_user_id?: string }) {
+  const params = new URLSearchParams();
+  if (filters?.stage) params.set("stage", filters.stage);
+  if (filters?.source) params.set("source", filters.source);
+  if (filters?.assigned_to_user_id) params.set("assigned_to_user_id", filters.assigned_to_user_id);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return apiFetch<LeadPublic[]>(`/leads${query}`, { accessToken, organizationId });
+}
+
+export function getLead(accessToken: string, organizationId: string, leadId: string) {
+  return apiFetch<LeadPublic>(`/leads/${leadId}`, { accessToken, organizationId });
+}
+
+export function createManualLead(accessToken: string, organizationId: string, data: { full_name?: string; email?: string; phone?: string; product_interest?: string; disclosed_budget_cents?: number; attributed_meta_campaign_id?: string }) {
+  return apiFetch<LeadPublic>("/leads", { method: "POST", accessToken, organizationId, body: JSON.stringify(data) });
+}
+
+export interface LeadStageTransitionPublic {
+  id: string;
+  from_stage: LeadStage | null;
+  to_stage: LeadStage;
+  changed_by_user_id: string | null;
+  changed_at: string;
+  note: string | null;
+}
+
+export function getLeadTransitions(accessToken: string, organizationId: string, leadId: string) {
+  return apiFetch<LeadStageTransitionPublic[]>(`/leads/${leadId}/transitions`, { accessToken, organizationId });
+}
+
+export function transitionLeadStage(accessToken: string, organizationId: string, leadId: string, data: { to_stage: LeadStage; note?: string }) {
+  return apiFetch<LeadPublic>(`/leads/${leadId}/transition`, { method: "POST", accessToken, organizationId, body: JSON.stringify(data) });
+}
+
+export function assignLead(accessToken: string, organizationId: string, leadId: string, assignedToUserId: string | null) {
+  return apiFetch<LeadPublic>(`/leads/${leadId}/assign`, { method: "POST", accessToken, organizationId, body: JSON.stringify({ assigned_to_user_id: assignedToUserId }) });
+}
+
+export function updateLeadNotes(accessToken: string, organizationId: string, leadId: string, notes: string) {
+  return apiFetch<LeadPublic>(`/leads/${leadId}/notes`, { method: "POST", accessToken, organizationId, body: JSON.stringify({ notes }) });
+}
+
+export interface QualificationCriteria {
+  minimum_score: number;
+  minimum_disclosed_budget_cents: number | null;
+  require_product_interest: boolean;
+}
+
+export function getQualificationCriteria(accessToken: string, organizationId: string) {
+  return apiFetch<QualificationCriteria>("/leads/qualification/criteria", { accessToken, organizationId });
+}
+
+export function setQualificationCriteria(accessToken: string, organizationId: string, data: QualificationCriteria) {
+  return apiFetch<QualificationCriteria>("/leads/qualification/criteria", { method: "PUT", accessToken, organizationId, body: JSON.stringify(data) });
+}
+
+export function evaluateLeadQualification(accessToken: string, organizationId: string, leadId: string) {
+  return apiFetch<{ qualifies: boolean; reasons: string[] }>(`/leads/${leadId}/qualification`, { accessToken, organizationId });
+}
+
+export function qualifyLead(accessToken: string, organizationId: string, leadId: string) {
+  return apiFetch<LeadPublic>(`/leads/${leadId}/qualify`, { method: "POST", accessToken, organizationId });
+}
+
+export interface LeadFollowUpPublic {
+  id: string;
+  lead_id: string;
+  channel: FollowUpChannel;
+  subject: string | null;
+  body: string;
+  status: FollowUpStatus;
+  send_error: string | null;
+  sent_at: string | null;
+  created_at: string;
+}
+
+export function listFollowUps(accessToken: string, organizationId: string, leadId: string) {
+  return apiFetch<LeadFollowUpPublic[]>(`/leads/${leadId}/follow-ups`, { accessToken, organizationId });
+}
+
+export function generateFollowUp(accessToken: string, organizationId: string, leadId: string, data: { channel: FollowUpChannel; tone?: string }) {
+  return apiFetch<LeadFollowUpPublic>(`/leads/${leadId}/follow-ups`, { method: "POST", accessToken, organizationId, body: JSON.stringify(data) });
+}
+
+export function sendFollowUp(accessToken: string, organizationId: string, followUpId: string) {
+  return apiFetch<LeadFollowUpPublic>(`/leads/follow-ups/${followUpId}/send`, { method: "POST", accessToken, organizationId });
+}
+
+export interface SalesAnalytics {
+  date_range: { start: string; stop: string };
+  leads: number;
+  qualified_leads: number;
+  sales: number;
+  conversion_rate: number | null;
+  revenue_cents: number | null;
+  spend_cents: number;
+  cost_per_sale_cents: number | null;
+  roas: number | null;
+  customer_acquisition_cost_cents: number | null;
+  note: string;
+}
+
+export function getSalesAnalytics(accessToken: string, organizationId: string, dateStart: string, dateStop: string) {
+  return apiFetch<SalesAnalytics>(`/leads/analytics/summary?date_start=${dateStart}&date_stop=${dateStop}`, { accessToken, organizationId });
+}
+
+export interface SalesAgentAnswer {
+  answer_text: string;
+  data_used: Record<string, unknown>;
+}
+
+export function askSalesAgent(accessToken: string, organizationId: string, data: { question: string; date_start: string; date_stop: string }) {
+  return apiFetch<SalesAgentAnswer>("/leads/analytics/ask", { method: "POST", accessToken, organizationId, body: JSON.stringify(data) });
+}
