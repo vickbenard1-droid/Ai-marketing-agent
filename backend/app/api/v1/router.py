@@ -15,6 +15,7 @@ from app.api.v1.endpoints import (
     content_generation,
     dashboard,
     experiments,
+    leads,
     members,
     meta_ads,
     onboarding,
@@ -51,3 +52,4 @@ api_router.include_router(meta_ads.router)
 api_router.include_router(analytics.router)
 api_router.include_router(tracking.router)
 api_router.include_router(optimization.router)
+api_router.include_router(leads.router)
