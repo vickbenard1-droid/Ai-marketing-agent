@@ -10,8 +10,22 @@ from app.agents.marketing_strategy import MarketingStrategyAgent
 from app.agents.audience_research import AudienceResearchAgent
 from app.agents.ad_copy import AdCopyAgent
 from app.agents.seo import SEOAgent
+from app.agents.research import ResearchAgent
+from app.agents.content_agent import ContentAgent
+from app.agents.advertising_agent import AdvertisingAgent
+from app.agents.analytics_agent import AnalyticsAgent
+from app.agents.optimization_agent import OptimizationAgent
+from app.agents.sales_agent import SalesAgent
+from app.agents.reporting_agent import ReportingAgent
 
 agent_registry.register(MarketingStrategyAgent())
 agent_registry.register(AudienceResearchAgent())
 agent_registry.register(AdCopyAgent())
 agent_registry.register(SEOAgent())
+agent_registry.register(ResearchAgent())
+agent_registry.register(ContentAgent())
+agent_registry.register(AdvertisingAgent())
+agent_registry.register(AnalyticsAgent())
+agent_registry.register(OptimizationAgent())
+agent_registry.register(SalesAgent())
+agent_registry.register(ReportingAgent())

@@ -54,17 +54,22 @@ def _patch_provider(monkeypatch, provider):
     monkeypatch.setattr("app.ai_chat.service.get_ai_provider_for_task", lambda task: provider)
 
 
-def test_list_agents_returns_all_four(client, seeded_roles):
+def test_list_agents_includes_original_four(client, seeded_roles):
+    """As of Week 11, the registry has grown well beyond the original 4
+    Week-3 agents (research/content/advertising/analytics/optimization/
+    sales/reporting agents were added) - this checks the original 4 are
+    still present and correctly registered, not that the roster is
+    frozen at exactly 4."""
     headers = _register_and_org_headers(client)
     resp = client.get("/api/v1/agents", headers=headers)
     assert resp.status_code == 200
     names = {a["name"] for a in resp.json()}
-    assert names == {
+    assert {
         "marketing_strategy_agent",
         "audience_research_agent",
         "ad_copy_agent",
         "seo_agent",
-    }
+    }.issubset(names)
 
 
 def test_list_agents_requires_can_execute_ai_actions(client, seeded_roles):
