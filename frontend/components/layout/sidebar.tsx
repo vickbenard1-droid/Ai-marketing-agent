@@ -16,6 +16,7 @@ import {
   CircleDollarSign,
   Gauge,
   Users2,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrgSwitcher } from "./org-switcher";
@@ -27,6 +28,7 @@ import { OrgSwitcher } from "./org-switcher";
 // architecture of the full product is visible from day one.
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, enabled: true },
+  { label: "Orchestrator", href: "/orchestrator", icon: Workflow, enabled: true },
   { label: "AI Assistant", href: "/chat", icon: Sparkles, enabled: true },
   { label: "AI Tools", href: "/ai-tools", icon: Bot, enabled: true },
   { label: "Campaigns", href: "/campaigns", icon: Megaphone, enabled: true },

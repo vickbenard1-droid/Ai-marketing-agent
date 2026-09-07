@@ -1686,3 +1686,106 @@ export interface SalesAgentAnswer {
 export function askSalesAgent(accessToken: string, organizationId: string, data: { question: string; date_start: string; date_stop: string }) {
   return apiFetch<SalesAgentAnswer>("/leads/analytics/ask", { method: "POST", accessToken, organizationId, body: JSON.stringify(data) });
 }
+
+// ---- Orchestrator (Week 11) --------------------------------------------------------
+
+export type OrchestrationRunStatus = "planning" | "running" | "paused_for_approval" | "completed" | "failed" | "cancelled";
+export type ActivityStatus = "planned" | "in_progress" | "awaiting_approval" | "approved" | "rejected" | "completed" | "failed";
+export type DecisionOutcome = "pending" | "successful" | "failed" | "inconclusive";
+
+export interface AgentSummaryPublic {
+  name: string;
+  description: string;
+}
+
+export function listAvailableAgents(accessToken: string, organizationId: string) {
+  return apiFetch<AgentSummaryPublic[]>("/orchestrator/agents", { accessToken, organizationId });
+}
+
+export interface OrchestrationPlanStep {
+  agent_name: string;
+  action_description: string;
+  requires_approval: boolean;
+}
+
+export interface OrchestrationRunPublic {
+  id: string;
+  goal_text: string;
+  plan_json: OrchestrationPlanStep[];
+  current_step: number;
+  status: OrchestrationRunStatus;
+  final_summary: string | null;
+  requested_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export function createOrchestrationRun(accessToken: string, organizationId: string, goalText: string) {
+  return apiFetch<OrchestrationRunPublic>("/orchestrator/runs", { method: "POST", accessToken, organizationId, body: JSON.stringify({ goal_text: goalText }) });
+}
+
+export function listOrchestrationRuns(accessToken: string, organizationId: string) {
+  return apiFetch<OrchestrationRunPublic[]>("/orchestrator/runs", { accessToken, organizationId });
+}
+
+export function getOrchestrationRun(accessToken: string, organizationId: string, runId: string) {
+  return apiFetch<OrchestrationRunPublic>(`/orchestrator/runs/${runId}`, { accessToken, organizationId });
+}
+
+export function advanceOrchestrationRun(accessToken: string, organizationId: string, runId: string) {
+  return apiFetch<OrchestrationRunPublic>(`/orchestrator/runs/${runId}/advance`, { method: "POST", accessToken, organizationId });
+}
+
+export function approveOrchestrationStep(accessToken: string, organizationId: string, runId: string, data: { approve: boolean; agent_kwargs?: Record<string, unknown> }) {
+  return apiFetch<OrchestrationRunPublic>(`/orchestrator/runs/${runId}/approve-step`, { method: "POST", accessToken, organizationId, body: JSON.stringify({ approve: data.approve, agent_kwargs: data.agent_kwargs ?? {} }) });
+}
+
+export interface AgentActivityLogPublic {
+  id: string;
+  orchestration_run_id: string | null;
+  agent_name: string;
+  step_number: number | null;
+  action_description: string;
+  reasoning: string | null;
+  data_used_json: Record<string, unknown>;
+  recommendation: string | null;
+  execution_result_json: Record<string, unknown> | null;
+  status: ActivityStatus;
+  requires_approval: boolean;
+  created_at: string;
+}
+
+export function getRunActivity(accessToken: string, organizationId: string, runId: string) {
+  return apiFetch<AgentActivityLogPublic[]>(`/orchestrator/runs/${runId}/activity`, { accessToken, organizationId });
+}
+
+export function getAllActivity(accessToken: string, organizationId: string, limit = 50) {
+  return apiFetch<AgentActivityLogPublic[]>(`/orchestrator/activity?limit=${limit}`, { accessToken, organizationId });
+}
+
+export interface AgentDecisionPublic {
+  id: string;
+  agent_name: string;
+  goal_description: string | null;
+  decision_summary: string;
+  outcome: DecisionOutcome;
+  outcome_notes: string | null;
+  created_at: string;
+}
+
+export function listAgentDecisions(accessToken: string, organizationId: string, agentName?: string) {
+  const query = agentName ? `?agent_name=${encodeURIComponent(agentName)}` : "";
+  return apiFetch<AgentDecisionPublic[]>(`/orchestrator/decisions${query}`, { accessToken, organizationId });
+}
+
+export interface RelevantMemoryPublic {
+  business_knowledge: string;
+  recent_performance: Record<string, unknown>;
+  successful_strategies: Record<string, unknown>[];
+  failed_strategies: Record<string, unknown>[];
+  recent_customer_summary: Record<string, unknown>;
+}
+
+export function getRelevantMemory(accessToken: string, organizationId: string, days = 30) {
+  return apiFetch<RelevantMemoryPublic>(`/orchestrator/memory?days=${days}`, { accessToken, organizationId });
+}
