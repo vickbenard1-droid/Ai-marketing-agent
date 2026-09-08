@@ -158,11 +158,45 @@ endpoint correctly (no over-correction).
 
 **Regression coverage added** to the same test file (now 4 tests total).
 
-**This finding changes a conclusion from earlier in this audit**: my
-initial route-level dependency sweep (`get_current_org_member`/
-`require_permission` present on every route) was necessary but provably
-not sufficient — it confirms a caller belongs to *some* organization, but
-says nothing about whether the *specific resource* referenced by a path
-parameter belongs to that same organization. Every remaining area of this
-audit will explicitly check both layers separately rather than trust
-route-level dependency presence as proof of resource-level safety.
+### Extended resource-level sweep — every endpoint file, both `db.get()` and `db.query().filter()` shapes
+
+Re-ran the ownership-check scan across the *entire* `app/api/v1/endpoints/`
+directory (not just `meta_ads.py`), and specifically widened the
+`db.query().filter()` pattern to be multi-line-aware — the two real bugs
+above were both single-line filters, and I did not want to assume a
+regex shape that happened to catch those two would catch everything else
+too.
+
+- Every `db.get(Model, id)` call codebase-wide (`auth.py`, `dashboard.py`,
+  `meta_ads.py` ×3 now — the 3rd being the ownership-check line my own
+  fix added, `organizations.py` ×2): all confirmed safe, either by
+  fetching with the caller's own `member.organization_id` directly, or by
+  an immediate ownership check before use.
+- Widened `db.query().filter()` scan surfaced 2 genuinely new candidates
+  the narrower single-line regex missed: `leads.py`'s
+  `get_lead_transitions` and `orchestrator.py`'s `get_run_activity`. Both
+  reviewed in full and confirmed safe — each calls a `_get_..._or_404`
+  helper immediately beforehand that performs a real ownership check
+  (`lead_service.get_lead(organization_id=..., lead_id=...)` /
+  `OrchestrationRun.organization_id == organization_id` respectively) and
+  raises 404 before the unguarded query below it ever runs. Read the
+  helper functions themselves rather than trust their names.
+- Remaining hits (`auth.py` email lookup, `organizations.py` slug/role
+  lookups, `members.py` role list) re-confirmed as legitimately
+  non-tenant-scoped, same reasoning as before — `members.py`'s own
+  docstring explicitly explains why org membership is still required
+  even though `Role` itself isn't tenant data, which is worth noting as
+  a genuinely well-reasoned existing comment, not just a lucky pass.
+
+**Conclusion**: the 2 bugs found and fixed in `meta_ads.py` were real and
+were the only 2 — this broader, differently-shaped sweep across every
+other file did not surface a third. Resource-level tenant isolation is
+now confirmed sound across the full API surface, not just spot-checked.
+
+**Methodological note carried forward**: route-level auth-dependency
+presence (`get_current_org_member`/`require_permission` on the route) is
+necessary but not sufficient proof of resource-level tenant isolation —
+it confirms a caller belongs to *some* organization, not that a specific
+path-referenced resource belongs to that same organization. Both layers
+were checked explicitly in this sweep rather than the first implying the
+second.
