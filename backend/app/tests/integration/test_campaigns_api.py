@@ -415,3 +415,51 @@ def test_list_experiments(client, seeded_roles):
     resp = client.get(f"/api/v1/campaigns/{created['id']}/experiments", headers=headers)
     assert resp.status_code == 200
     assert len(resp.json()) == 1
+
+# --------------------------------------------------------------------------
+# Additional campaign generation coverage
+#
+# Investigating a test failure while writing these revealed
+# app/api/v1/endpoints/campaign_generation.py already has thorough
+# dedicated coverage above (test_generate_campaign_full_flow,
+# test_generate_campaign_requires_can_execute_ai_actions,
+# test_generate_campaign_records_usage,
+# test_generate_campaign_with_malformed_ai_response_returns_502,
+# test_regenerate_replaces_prior_variants) - my initial gap analysis for
+# this file was wrong, the same kind of false-positive gap already found
+# once this week for experiments.py and connected_accounts.py. Removed
+# everything that duplicated existing coverage; kept only what's
+# genuinely new below: cross-tenant isolation (not previously tested for
+# this endpoint) and confirming the permission check is specifically
+# can_execute_ai_actions-independent-of-can_manage_campaigns using a
+# role combination not exercised by the existing 'analyst' test (which
+# has neither permission, so doesn't prove the check isn't secretly
+# checking both).
+# --------------------------------------------------------------------------
+
+
+def test_content_manager_can_generate_despite_lacking_campaign_management_permission(client, seeded_roles, monkeypatch):
+    """content_manager has can_execute_ai_actions=True but
+    can_manage_campaigns=False (confirmed against the real role matrix in
+    app/db/seed_roles.py) - proves generate's permission gate is
+    genuinely independent of campaign-management permission, not
+    effectively requiring both, which the existing 'analyst' test
+    (neither permission) can't distinguish."""
+    _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
+    owner_headers = _register_and_org_headers(client)
+    org_id = owner_headers["X-Organization-Id"]
+    created = _create_draft(client, owner_headers).json()
+
+    content_manager_headers = _add_member_with_role(client, owner_headers, org_id, "content_manager")
+    resp = client.post(f"/api/v1/campaigns/{created['id']}/generate", headers=content_manager_headers)
+    assert resp.status_code == 200
+
+
+def test_generate_campaign_isolated_across_organizations(client, seeded_roles, monkeypatch):
+    _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
+    org_a_headers = _register_and_org_headers(client)
+    org_b_headers = _register_and_org_headers(client)
+    created = _create_draft(client, org_a_headers).json()
+
+    exploit_resp = client.post(f"/api/v1/campaigns/{created['id']}/generate", headers=org_b_headers)
+    assert exploit_resp.status_code == 400
