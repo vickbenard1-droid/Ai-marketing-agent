@@ -339,3 +339,59 @@ malicious-HTML-labeled-as-image scenario, which also asserts
 storage at all, not just that the HTTP response looks like a rejection.
 
 191/191 backend tests pass (190 + 1 new).
+
+## 6. Webhooks
+
+**No public-facing HTTP webhook endpoint exists in this codebase.** The
+Week 10 `GenericWebhookCRMAdapter` (`app/analytics/crm_adapter.py`)
+processes webhook-*shaped* payloads (its own docstring explains this
+design: no OAuth/secret-verification layer exists for generic
+third-party CRMs), but confirmed by direct grep that nothing in
+`app/api/v1/endpoints/` wires it to a real route — it's an internal
+adapter, not a live attack surface. Recorded here as an accurate "does
+not apply as built" rather than silently skipped, since the spec asked
+for it explicitly.
+
+The genuinely comparable real surface — public, unauthenticated,
+receives external input — is Week 8's `/api/v1/track/*` endpoints,
+reviewed here instead as the closest real equivalent.
+
+### 🔧 FOUND AND FIXED: unbounded conversion value on the public tracking endpoint
+
+`POST /track/conversion` is deliberately public and unauthenticated (the
+tracking key is meant to live in a business's own public page source —
+this is correct by design, not a bug). But `conversion_value_cents` had
+no validation bound at all — `Optional[int] = None`, no `ge`/`le`. A
+leaked or guessed tracking key (a realistic threat given it's
+intentionally public) could be used to submit an arbitrarily large or
+negative fake conversion value. This isn't a cross-tenant leak (it can
+only write into the one organization whose key was used), but it's a
+genuine data-integrity risk: `WebsiteTrackingEvent.conversion_value_cents`
+feeds directly into `SalesAnalytics.revenue_cents`/ROAS (Week 10) — a
+malicious or even just a badly-behaved script hitting this endpoint
+repeatedly could corrupt the exact numbers the org's own sales agent and
+optimization agent (Week 9) reason over and act on.
+
+**Fix**: added `ge=0` (a conversion cannot have negative value) and
+`le=10_000_000_00` ($10M — generous enough to never reject a real sale,
+tight enough to block absurd/abuse-shaped input) to
+`TrackConversionRequest.conversion_value_cents`.
+
+**Verified**: a legitimate $150 sale still validates correctly; a
+negative value and an absurd (~$1 trillion) value are both correctly
+rejected; a conversion with no value at all (e.g. a newsletter signup —
+a real, valid non-monetary conversion type) remains correctly allowed.
+
+**Added permanent regression coverage** —
+`app/tests/integration/test_tracking_api.py` (5 tests). This is also the
+first permanent test file for the `/track/*` endpoints at all.
+196/196 backend tests pass (191 + 5 new).
+
+**Rate limiting on this endpoint** was already reviewed as sound in an
+earlier pass — `120/minute` via the existing slowapi limiter — kept, not
+re-litigated here; a determined attacker could still submit ~172,800
+fake events/day within that limit, which the value-bound fix above
+mitigates the worst consequence of, but this is worth carrying into the
+Rate Limiting section as a residual, lower-severity consideration
+(volume of fake page-views/small-value conversions, not unbounded
+financial-figure corruption, which is now closed).

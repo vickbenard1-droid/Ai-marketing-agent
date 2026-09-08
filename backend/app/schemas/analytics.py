@@ -18,7 +18,16 @@ class TrackConversionRequest(BaseModel):
     tracking_key: str
     visitor_id: str
     conversion_type_name: str
-    conversion_value_cents: Optional[int] = None
+    # Bounded: this endpoint is deliberately public/unauthenticated (the
+    # tracking key is meant to be embedded in public page source - see
+    # app.analytics.website_tracking's own docstring), so a leaked or
+    # guessed key could otherwise be used to submit an arbitrarily large
+    # or negative fake conversion value, corrupting real revenue/ROAS
+    # figures this organization's own sales and optimization agents
+    # reason over. ge=0 (a conversion cannot have negative value);
+    # le=10_000_000_00 ($10M) is generous enough to never reject a real
+    # sale while still bounding abuse.
+    conversion_value_cents: Optional[int] = Field(default=None, ge=0, le=10_000_000_00)
     page_url: Optional[str] = None
     utm_json: dict = Field(default_factory=dict)
 
