@@ -395,3 +395,69 @@ mitigates the worst consequence of, but this is worth carrying into the
 Rate Limiting section as a residual, lower-severity consideration
 (volume of fake page-views/small-value conversions, not unbounded
 financial-figure corruption, which is now closed).
+
+## 7. Rate Limiting
+
+✅ **Reviewed in full — one real, significant gap found and fixed.**
+
+Explicit `@limiter.limit(...)` decorators exist only on `auth.py` (5
+routes) and `tracking.py` (2 routes) — the genuinely public/
+unauthenticated surfaces. This is defensible by itself, but
+`app.core.rate_limit` also configures a *global default* limit
+(`RATE_LIMIT_DEFAULT`, `100/minute` per IP) intended to cover every other
+route, including the ~190 authenticated business endpoints with no
+explicit decorator.
+
+### 🔧 FOUND AND FIXED: the global default rate limit was never actually being enforced
+
+`app/main.py` set `app.state.limiter` and registered the
+`RateLimitExceeded` exception handler, but never added
+`SlowAPIMiddleware`. Without that middleware, slowapi's `default_limits`
+do nothing for any route lacking an explicit `@limiter.limit(...)`
+decorator — meaning every authenticated business endpoint (AI content
+generation, the orchestrator, Meta Ads sync triggers, all of Weeks 7–11)
+had genuinely **no rate limiting at all**, despite the configuration
+implying a 100/minute global default existed.
+
+**Verified this behaviorally before fixing, not just from reading the
+code**: set `RATE_LIMIT_DEFAULT=3/minute` and fired 6 rapid real requests
+at a real, undecorated authenticated route (`GET /dashboard/summary`) —
+all 6 returned `200`, zero `429`s, proving the default genuinely did
+nothing.
+
+**Fix**: added `app.add_middleware(SlowAPIMiddleware)` in `app/main.py`.
+Re-ran the identical behavioral test post-fix: first 3 requests
+succeeded, requests 4–6 correctly returned `429` — the exact expected
+shape at a 3/minute limit.
+
+**A real mistake in my own first regression test, caught and corrected**:
+my first attempt used `importlib.reload()` on `app.main`,
+`app.core.config`, and `app.core.rate_limit` to get a fresh
+`RATE_LIMIT_DEFAULT` for the test. Running it alone passed — but running
+the *full* suite afterward broke 12 unrelated tests across 3 other files
+(`test_scheduled_posts_api.py`, `test_tracking_api.py`,
+`test_users_api.py`), because reloading real application modules mid-
+test-run corrupts shared state (a second `FastAPI` app object, stale
+dependency overrides) that other test files' fixtures depend on. Caught
+by running the full suite after adding the new test, not just the new
+file in isolation — exactly the discipline this whole audit already
+depends on, applied to my own new code this time. Rewrote the test to
+build a fully isolated `FastAPI`/`Limiter` instance that never touches
+real application modules, plus one focused test that imports the real
+`app.main.app` read-only and asserts `SlowAPIMiddleware` is present in
+its middleware stack (a genuine regression guard against this specific
+fix ever being silently reverted) — 3 tests total, none of which mutate
+shared state. Ran the full suite twice after the rewrite to rule out
+ordering-sensitivity, not just once.
+
+199/199 backend tests pass (196 + 3 new).
+
+**Residual, lower-severity note carried over from Section 6**: the
+100/minute global default (and the tracking endpoints' own 120/minute)
+still permit meaningful sustained volume from a single IP. Reasonable
+for now; a production deployment fielding real abuse would likely want
+per-organization or per-API-key limits on top of the per-IP default,
+which this app does not yet have. Flagged for the final report rather
+than built this week, since the spec asks for a genuine present-vs-
+absent audit, not new rate-limiting infrastructure beyond closing the
+gap found.
