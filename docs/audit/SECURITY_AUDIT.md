@@ -57,9 +57,61 @@ supplied in a request body. This is the correct pattern: tenant isolation
 enforced at the API boundary by checking real membership, not by trusting
 client-asserted identifiers.
 
-**Not yet checked:** whether every *service-layer* function that takes an
-`organization_id` parameter is actually called with the authenticated
-caller's org id everywhere (vs. some endpoint accidentally trusting a
-path/body param instead of `member.organization_id`) — this is a
-resource-level check, one layer below what I've verified so far. Continuing
-next.
+**Resource-level isolation check (below route-level):** systematically
+scanned for `db.get(Model, id)` and `db.query(Model).filter(Model.id ==
+...)`-style single-resource fetches inside endpoint functions, where the
+route-level dependency proves the caller belongs to *some* org, but the
+fetched resource's *own* org membership must be checked separately before
+returning/mutating it.
+
+### 🔧 FOUND AND FIXED: real cross-tenant data leak in `GET /meta-ads/ad-accounts/{ad_account_id}/spend-limit`
+
+`get_spend_limit` (`app/api/v1/endpoints/meta_ads.py`) required the caller
+to be an authenticated member of *some* organization, but never checked
+that the `ad_account_id` in the URL path belonged to *that* organization
+before returning its spend limit. Any authenticated user in any
+organization could pass another organization's real `ad_account_id` (a
+UUID, but one that could be learned via, e.g., a shared link, a support
+ticket, log exposure, or brute-force enumeration) and read that
+organization's real daily spend limit and emergency-stop status.
+
+This was caught only because a *second*, differently-shaped systematic
+scan (searching for foreign-key filters without an accompanying
+`organization_id` check, rather than re-trusting the earlier route-level
+"has a dependency" check) surfaced it — three structurally similar
+`db.get()` calls in the same file were checked by hand first and found
+genuinely safe (each immediately verifies `resource.organization_id ==
+member.organization_id` before use), which made it easy to assume the
+file was uniformly safe. It wasn't; this one function used a `db.query()`
+fetch instead of `db.get()`, so the "check every `db.get()` call" grep
+didn't even see it. **Lesson applied**: a single detection method,
+however systematic, can still miss a differently-shaped instance of the
+same bug class — this is why a second pass with a different search
+pattern is worth doing rather than treating one clean sweep as
+conclusive.
+
+**Fix**: added the identical fetch-then-verify-ownership pattern already
+used correctly elsewhere in the same file — `db.get(MetaAdAccount,
+ad_account_id)`, then `404` unless `ad_account.organization_id ==
+member.organization_id`, before running the original query.
+
+**Verified with a real exploit simulation, not just a unit check**:
+registered two genuinely separate organizations via real HTTP, org A set
+a real, distinctive spend limit (999999 cents), and org B's user
+attempted to read it using org A's real `ad_account_id` — confirmed
+`404`, confirmed the real number never appears in the response. Also
+confirmed org A can still read its own data correctly (no
+over-correction into a broken feature).
+
+**Added permanent regression coverage**: `app/tests/integration/
+test_meta_ads_isolation_api.py` (3 tests) — this is also the *first*
+permanent automated test file for the `meta_ads` endpoints at all;
+Weeks 7–11 (meta_ads, analytics, leads, optimization, orchestrator) had
+no permanent test files before this, only the manual verification done
+during each week's build. Flagged in the Testing section below as a
+real, separate gap to address more broadly this week.
+
+**Scope of this specific bug**: limited to this one endpoint. The
+`PUT`/`POST` mutating endpoints in the same file were independently
+verified safe (both by manual review and by the new regression test
+`test_org_cannot_set_another_orgs_spend_limit`).
