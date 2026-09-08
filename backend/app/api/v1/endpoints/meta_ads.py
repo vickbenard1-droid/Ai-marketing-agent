@@ -129,6 +129,10 @@ def set_emergency_stop(
 ):
     from datetime import datetime, timezone
 
+    ad_account = db.get(MetaAdAccount, ad_account_id)
+    if not ad_account or ad_account.organization_id != member.organization_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ad account not found")
+
     limit = db.query(AdAccountSpendLimit).filter(AdAccountSpendLimit.meta_ad_account_id == ad_account_id).first()
     if not limit:
         raise HTTPException(

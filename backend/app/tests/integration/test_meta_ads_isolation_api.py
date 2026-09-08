@@ -75,3 +75,22 @@ def test_org_cannot_set_another_orgs_spend_limit(client, seeded_roles, db_sessio
 
     exploit_resp = client.put(f"/api/v1/meta-ads/ad-accounts/{victim_ad_account_id}/spend-limit", json={"daily_spend_limit_cents": 1}, headers=attacker_headers)
     assert exploit_resp.status_code == 404
+
+
+def test_org_cannot_force_emergency_stop_on_another_orgs_ad_account(client, seeded_roles, db_session):
+    """Regression test for a second, higher-severity vulnerability found in the
+    same audit pass: set_emergency_stop could mutate ANY organization's real
+    ad-spend emergency-stop state (force-stop or force-resume real advertising)
+    with no ownership check on the ad_account_id."""
+    victim_headers, victim_ad_account_id = _register_org_with_ad_account(client, db_session, daily_spend_limit_cents=50000)
+    attacker_headers, _ = _register_org_with_ad_account(client, db_session, daily_spend_limit_cents=100)
+
+    exploit_resp = client.post(f"/api/v1/meta-ads/ad-accounts/{victim_ad_account_id}/emergency-stop", json={"stopped": True, "reason": "malicious"}, headers=attacker_headers)
+    assert exploit_resp.status_code == 404
+
+    victim_check = client.get(f"/api/v1/meta-ads/ad-accounts/{victim_ad_account_id}/spend-limit", headers=victim_headers)
+    assert victim_check.json()["is_emergency_stopped"] is False
+
+    legit_resp = client.post(f"/api/v1/meta-ads/ad-accounts/{victim_ad_account_id}/emergency-stop", json={"stopped": True, "reason": "legit"}, headers=victim_headers)
+    assert legit_resp.status_code == 200
+    assert legit_resp.json()["is_emergency_stopped"] is True

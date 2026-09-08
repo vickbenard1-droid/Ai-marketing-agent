@@ -111,7 +111,58 @@ no permanent test files before this, only the manual verification done
 during each week's build. Flagged in the Testing section below as a
 real, separate gap to address more broadly this week.
 
-**Scope of this specific bug**: limited to this one endpoint. The
-`PUT`/`POST` mutating endpoints in the same file were independently
-verified safe (both by manual review and by the new regression test
-`test_org_cannot_set_another_orgs_spend_limit`).
+### 🔧 FOUND AND FIXED: a SECOND, higher-severity cross-tenant vulnerability in the same file — `POST /meta-ads/ad-accounts/{ad_account_id}/emergency-stop`
+
+Found immediately after fixing the first, by deliberately re-applying the
+"second, differently-shaped scan" method to the *entire codebase* rather
+than treating the first fix as closing the matter — searched every
+endpoint file for `db.query(Model).filter(...).first/all/one/count()`
+calls lacking an `organization_id`/`user_id` filter. This surfaced 6 hits;
+4 were reviewed and confirmed genuinely safe (global email lookup during
+unauthenticated password/verification flows — correctly never reveals
+account existence; global org-slug uniqueness check; global system-`Role`
+lookup by name — roles are shared, not tenant-scoped). The remaining 2
+were the already-fixed first bug's own query line (now safe, upstream
+ownership check added) — but reading that whole function in full revealed
+a **third, sibling function in the same file with the identical missing
+check**, one call below the fixed one, which the mechanical scan itself
+hadn't flagged as new (same query shape, so it just looked like "more of
+the same known issue" rather than an independently exploitable second
+bug).
+
+`set_emergency_stop` fetched `AdAccountSpendLimit` by `ad_account_id`
+alone with **no ownership check**, and unlike the read-only bug fixed
+above, this endpoint *mutates* real state: any authenticated user with
+`can_manage_integrations` on their own organization could POST another
+organization's real `ad_account_id` and either **force-enable an
+emergency stop** (halting a different tenant's real advertising spend
+without their knowledge or consent) or, if it happened to already be
+stopped, **force-disable it** (silently resuming spend against that
+tenant's wishes). The mutation was also attributed to `member.user_id` —
+the attacker's own identity — meaning even the audit trail on the
+mutated row would misrepresent who acted on it. This is a materially
+worse bug than the first: unauthorized read of a number vs. unauthorized
+control over another business's real ad spend safety switch.
+
+**Fix**: identical fetch-then-verify-ownership pattern, applied to this
+function too.
+
+**Verified with a real two-organization mutation exploit test**: victim
+org sets a real, distinct spend limit; attacker org calls the
+emergency-stop endpoint against the victim's real `ad_account_id` with
+`stopped: true` — confirmed `404`, confirmed the victim's real
+`is_emergency_stopped` state is genuinely untouched by the attack
+afterward (not just "the response was blocked" — checked the actual
+persisted state), and confirmed the victim can still use their own
+endpoint correctly (no over-correction).
+
+**Regression coverage added** to the same test file (now 4 tests total).
+
+**This finding changes a conclusion from earlier in this audit**: my
+initial route-level dependency sweep (`get_current_org_member`/
+`require_permission` present on every route) was necessary but provably
+not sufficient — it confirms a caller belongs to *some* organization, but
+says nothing about whether the *specific resource* referenced by a path
+parameter belongs to that same organization. Every remaining area of this
+audit will explicitly check both layers separately rather than trust
+route-level dependency presence as proof of resource-level safety.
