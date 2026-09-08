@@ -32,6 +32,44 @@ MAX_VIDEO_SIZE_BYTES = 100 * 1024 * 1024  # 100 MB
 ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
 ALLOWED_VIDEO_CONTENT_TYPES = {"video/mp4", "video/quicktime", "video/webm"}
 
+
+def _sniff_content_type(data: bytes) -> str | None:
+    """
+    Determines the real content type from the file's own bytes (magic
+    numbers), never from the client-supplied Content-Type header - that
+    header is fully attacker-controlled (a multipart form field, not
+    something the browser verifies against the actual file), so trusting
+    it to gate what's allowed to upload is a real content-type-confusion
+    vulnerability: an attacker could label a malicious HTML/SVG/script
+    payload as "image/jpeg", pass the allow-list check, and have it
+    stored and later served back via a presigned URL with that same
+    spoofed Content-Type - a stored-XSS-via-upload pattern if a browser
+    ever renders the response instead of downloading it.
+
+    Deliberately hand-rolled rather than a new dependency (e.g.
+    python-magic) - the allow-list is a fixed 7 types, and each has a
+    well-known, short, stable byte signature; a general-purpose file-type
+    library would be solving a broader problem than this one actually
+    has.
+    """
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    if data[4:12] == b"ftypqt  " or data[4:8] == b"ftyp" and data[8:12] in (b"qt  ", b"mp42", b"isom", b"MSNV"):
+        # MP4/MOV both use the ISO base media file format container -
+        # distinguish by the specific brand bytes at offset 8.
+        if data[8:12] in (b"qt  ", b"qt\x20\x20"):
+            return "video/quicktime"
+        return "video/mp4"
+    if data[:4] == b"\x1a\x45\xdf\xa3":
+        return "video/webm"
+    return None
+
 IMAGE_ANALYSIS_SYSTEM = (
     "You are looking at a product or marketing photo. Describe what's in the image "
     "in 2-4 sentences: the product/subject, setting, colors, and mood. Be concrete "
@@ -54,26 +92,36 @@ def upload_asset(
     content_type: str,
     data: bytes,
 ) -> ContentAsset:
-    if content_type in ALLOWED_IMAGE_CONTENT_TYPES:
+    if len(data) == 0:
+        raise AssetError("File is empty")
+
+    # The real content type, derived from the file's own bytes - never
+    # the client-supplied `content_type` parameter (that's an
+    # attacker-controlled multipart header, not a guarantee about the
+    # actual file - see _sniff_content_type's own docstring for why
+    # trusting it would be a real vulnerability). `content_type` is only
+    # used below in the rejection message, to tell the caller what they
+    # claimed vs. what the file actually is.
+    real_content_type = _sniff_content_type(data)
+
+    if real_content_type in ALLOWED_IMAGE_CONTENT_TYPES:
         asset_type = AssetType.IMAGE
         size_limit = MAX_IMAGE_SIZE_BYTES
-    elif content_type in ALLOWED_VIDEO_CONTENT_TYPES:
+    elif real_content_type in ALLOWED_VIDEO_CONTENT_TYPES:
         asset_type = AssetType.VIDEO
         size_limit = MAX_VIDEO_SIZE_BYTES
     else:
         raise AssetError(
-            f"Unsupported file type '{content_type}'. Allowed: "
+            f"This file's actual content (claimed as '{content_type}') is not a supported type. Allowed: "
             f"{sorted(ALLOWED_IMAGE_CONTENT_TYPES | ALLOWED_VIDEO_CONTENT_TYPES)}"
         )
 
     if len(data) > size_limit:
         raise AssetError(f"File exceeds the {size_limit // (1024 * 1024)}MB limit for this file type")
-    if len(data) == 0:
-        raise AssetError("File is empty")
 
     key = build_object_key(organization_id, filename)
     try:
-        upload_bytes(key=key, data=data, content_type=content_type)
+        upload_bytes(key=key, data=data, content_type=real_content_type)
     except StorageError as exc:
         raise AssetError(f"Upload failed: {exc}") from exc
 
@@ -84,7 +132,7 @@ def upload_asset(
         status=AssetStatus.UPLOADED,
         original_filename=filename,
         storage_key=key,
-        content_type=content_type,
+        content_type=real_content_type,
         size_bytes=len(data),
     )
     db.add(asset)

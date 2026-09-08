@@ -270,3 +270,72 @@ rather than left implicit.
 
 190/190 backend tests pass after this fix (no change in count — a config
 default and wiring correction, not new test coverage).
+
+## 4. Database Security
+
+✅ **Sound — no raw SQL string interpolation anywhere.** Grepped the
+entire codebase for f-string SQL (`f"SELECT`, `.execute(f"`, etc.) and
+for any raw `.execute()` call outside Alembic migrations (which
+legitimately use `op.execute()` for DDL): zero hits either way. Every
+database interaction goes through the SQLAlchemy ORM/query-builder
+layer, which parameterizes automatically — SQL injection risk is
+structurally very low, not just "no injection found on inspection."
+
+## 5. File Uploads
+
+✅ **Reviewed in full — one real, genuine vulnerability found and fixed.**
+
+`app/storage/client.py` is well-designed: object keys are namespaced by
+organization (`organizations/{org_id}/content-assets/{uuid}.{ext}`), so
+tenant isolation exists at the storage-key level too, not just the
+database; the file-extension sanitizer explicitly defends against a
+malformed filename (e.g. `photo.jpg?x=1`) producing a key with injected
+characters. `app/api/v1/endpoints/content_assets.py` has a real,
+sensible chunked-read cap independent of the per-type limits enforced
+one layer down, so an oversized request body is rejected before its
+bytes are even fully read into memory.
+
+### 🔧 FOUND AND FIXED: content-type spoofing — uploads were validated against the client-supplied header, not the file's real content
+
+`upload_asset` (`app/content/asset_service.py`) validated and stored
+files using the `Content-Type` value from the multipart upload request —
+a value the client fully controls and the browser does not verify
+against the actual file bytes. An attacker could label a malicious
+payload (e.g. HTML containing `<script>`) as `image/jpeg`, pass the
+allow-list check, have it stored, and have it served back later via a
+presigned URL carrying that same spoofed `Content-Type` — a real
+stored-XSS-via-upload pattern if any client ever renders the response
+instead of force-downloading it.
+
+**Fix**: added `_sniff_content_type()` — real magic-byte detection for
+all 7 allowed types (JPEG/PNG/GIF/WebP/MP4/QuickTime/WebM), hand-rolled
+rather than a new dependency since the allow-list is small and fixed and
+each signature is well-known and short. `upload_asset` now validates and
+stores based on the *real sniffed type*, never the client's claim — the
+claimed type is only echoed back in the rejection message shown to a
+legitimate caller who genuinely mislabeled a file.
+
+**Verified thoroughly**: confirmed all 7 real magic-byte signatures are
+correctly detected in isolation; confirmed the actual exploit payload
+(malicious HTML labeled `image/jpeg`) sniffs to `None` and is rejected
+by the full `upload_asset` function with nothing stored; confirmed a
+genuine file with an honestly-mismatched claimed type (real PNG bytes,
+claimed as JPEG) still uploads correctly using its real type, so the fix
+doesn't over-correct into rejecting legitimate uploads.
+
+**Fixed 3 existing tests that broke as a direct, correct consequence**:
+they uploaded placeholder bytes (`b"fakejpeg"`) that were never real
+images — previously passed only because the vulnerable code trusted the
+claimed type. Replaced the placeholder bytes with real JPEG magic bytes
+(matching the pattern one already-correct test in the same file already
+used) rather than weaken the new check to accommodate fake test data.
+Left the legitimate negative test (`application/pdf`, expecting
+rejection) untouched.
+
+**Added a permanent regression test**
+(`test_upload_asset_rejects_spoofed_content_type`) using the exact
+malicious-HTML-labeled-as-image scenario, which also asserts
+`put_object` was never called — confirming the payload never reaches
+storage at all, not just that the HTTP response looks like a rejection.
+
+191/191 backend tests pass (190 + 1 new).

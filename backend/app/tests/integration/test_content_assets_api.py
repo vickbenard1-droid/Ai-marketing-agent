@@ -129,6 +129,34 @@ def test_upload_asset_rejects_unsupported_type(client, seeded_roles):
     assert resp.status_code == 400
 
 
+def test_upload_asset_rejects_spoofed_content_type(client, seeded_roles):
+    """
+    Regression test for a real vulnerability found in the Week 12
+    security audit: upload_asset used to trust the client-supplied
+    multipart Content-Type header to decide whether a file was an
+    allowed type, rather than checking the file's actual bytes. An
+    attacker could label a malicious payload (e.g. HTML with an embedded
+    <script> tag) as "image/jpeg", pass validation, and have it stored
+    and later served back via a presigned URL carrying that same spoofed
+    Content-Type - a stored-XSS-via-upload pattern.
+    """
+    headers = _register_and_org_headers(client)
+    malicious_payload = b"<html><body><script>alert(document.cookie)</script></body></html>"
+    with patch("boto3.client") as mock_boto:
+        mock_s3_client = MagicMock()
+        mock_boto.return_value = mock_s3_client
+        resp = client.post(
+            "/api/v1/content-assets",
+            files={"file": ("totally_a_photo.jpg", malicious_payload, "image/jpeg")},
+            headers=headers,
+        )
+    assert resp.status_code == 400
+    assert "not a supported type" in resp.json()["detail"]
+    # Confirm boto3's put_object (the actual upload) was never even called -
+    # the malicious payload never reached storage at all.
+    mock_s3_client.put_object.assert_not_called()
+
+
 def test_list_and_get_assets(client, seeded_roles, monkeypatch):
     _configure_s3(monkeypatch)
     monkeypatch.setattr(
@@ -143,7 +171,7 @@ def test_list_and_get_assets(client, seeded_roles, monkeypatch):
         mock_boto.return_value = mock_s3_client
         upload_resp = client.post(
             "/api/v1/content-assets",
-            files={"file": ("candle.jpg", b"fakejpeg", "image/jpeg")},
+            files={"file": ("candle.jpg", b"\xff\xd8\xff" + b"realistic_enough_jpeg_body", "image/jpeg")},
             headers=headers,
         )
         asset_id = upload_resp.json()["id"]
@@ -172,7 +200,7 @@ def test_assets_isolated_across_organizations(client, seeded_roles, monkeypatch)
         mock_boto.return_value = mock_s3_client
         upload_resp = client.post(
             "/api/v1/content-assets",
-            files={"file": ("candle.jpg", b"fakejpeg", "image/jpeg")},
+            files={"file": ("candle.jpg", b"\xff\xd8\xff" + b"realistic_enough_jpeg_body", "image/jpeg")},
             headers=org_a_headers,
         )
     asset_id = upload_resp.json()["id"]
@@ -195,7 +223,7 @@ def test_delete_asset(client, seeded_roles, monkeypatch):
         mock_boto.return_value = mock_s3_client
         upload_resp = client.post(
             "/api/v1/content-assets",
-            files={"file": ("candle.jpg", b"fakejpeg", "image/jpeg")},
+            files={"file": ("candle.jpg", b"\xff\xd8\xff" + b"realistic_enough_jpeg_body", "image/jpeg")},
             headers=headers,
         )
         asset_id = upload_resp.json()["id"]
