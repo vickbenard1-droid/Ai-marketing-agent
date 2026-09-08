@@ -57,3 +57,87 @@ not silently left unmentioned.
 **Not yet reviewed**: API response time under concurrent load,
 background job performance, AI request latency/timeout handling,
 caching, frontend loading. Continuing next.
+
+## 2. Background Jobs
+
+**Method**: read every real Celery task in the codebase in full, then
+searched specifically for any Celery Beat (periodic scheduling)
+configuration to determine whether any of this actually runs on a
+timer, rather than assume from task existence alone.
+
+### 🔧 Fixed a stale, actively misleading docstring
+
+`app/tasks/celery_app.py`'s own module docstring claimed *"No real
+background tasks are defined yet"* — genuinely false as of Week 6: 3
+real tasks exist (`tasks.send_email`, `tasks.publish_scheduled_post`,
+`tasks.check_due_posts`), confirmed by direct codebase search. Left
+uncorrected, this is the kind of comment that actively misleads whoever
+reads it next (a future contributor, or this exact audit, had it not
+been caught) into believing less exists than actually does. Rewrote it
+to accurately point to the real task locations and, more importantly,
+to honestly document the actual current gap (below) rather than the
+outdated one.
+
+✅ **The 2 real task types that exist are genuinely well-engineered.**
+`app.publishing.tasks.publish_scheduled_post` correctly distinguishes
+retryable failures (network blips, rate limits — retried with
+exponential backoff up to `MAX_RETRIES`) from non-retryable ones
+(expired credentials, content the platform rejected — these fail
+straight to `FAILED` for a human to address, since retrying can't fix
+them). Its own docstring already documents a genuinely subtle testing
+gotcha about Celery's eager mode (`task_always_eager`) that was clearly
+investigated and verified directly, not assumed — a real sign of
+careful original engineering, not something this audit needed to
+correct.
+
+### ⚠️ A real, significant gap: no periodic/scheduled execution exists anywhere in this app
+
+`check_due_posts` (the task that finds due scheduled posts and
+dispatches publishing for each) has its own honest docstring noting it
+would be "scheduled via Celery beat in a real deployment, not
+implemented here" — confirmed by direct search: **zero Celery Beat
+configuration exists anywhere in this codebase.** This means, in the
+app's current state, nothing runs automatically on a timer at all.
+
+This gap is broader than just scheduled posting, and applies equally to
+every week built since: **Week 8's Meta Ads analytics sync
+(`app.analytics.sync_orchestrator`) and Week 9's optimization agent scan
+(`app.optimization.orchestrator.scan_organization`) also have no
+recurring execution** — both are real, working, well-tested functions,
+but both currently only run synchronously, on-demand, when a person (or
+an external system) makes a real API request that triggers them. There
+is no "check every few minutes/hours automatically" mechanism built for
+any of these three real, genuinely recurring business needs (publish
+scheduled content on time, keep synced analytics data fresh, let the
+optimization agent actually watch campaigns continuously the way its own
+name implies).
+
+**Practical consequence if deployed as-is**: scheduled social posts
+would never actually publish on their own; analytics data would only
+ever be as fresh as the last time someone opened the dashboard (which
+doesn't itself trigger a sync — a separate, real gap, see below);
+autonomous campaign optimization would only run when someone visits the
+Optimization page and clicks "scan now," which defeats much of the
+point of Week 9's own automation design.
+
+**Not fixed this week**: setting up Celery Beat (or an equivalent —
+e.g. a simple external cron hitting authenticated internal endpoints) is
+real infrastructure work, not a hardening fix to existing behavior, and
+is exactly the kind of thing the spec's Deployment section (not
+Performance) should own. Documented here in full, with the specific real
+functions that need scheduling named explicitly, so the production-
+readiness report can state plainly that this is required before relying
+on any of this app's automation running unattended.
+
+**Separately worth noting**: even once Beat scheduling exists, the
+analytics dashboard itself has no auto-refresh/webhook-driven sync
+trigger on the read side either — a person opening `/analytics` sees
+whatever `MetricSnapshot` rows already exist, computed by whenever sync
+last ran, not a live pull. This is a reasonable, common pattern (compute
+once on a schedule, serve cached reads fast) but is worth stating
+explicitly rather than leaving "the dashboard shows real-time data" as
+an unstated assumption a reader might otherwise make.
+
+**Not yet reviewed**: API response time under concurrent load, AI
+request latency/timeout handling, caching, frontend loading. Continuing
+next.

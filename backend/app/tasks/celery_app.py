@@ -1,10 +1,25 @@
 """
 Celery application instance.
 
-No real background tasks are defined yet — this is wiring for future weeks
-(scheduled content publishing, campaign performance polling, optimization
-job execution). A trivial health-check task is included so the worker setup
-can be verified end-to-end this week.
+Real tasks defined elsewhere and registered against this app instance:
+app.mail.tasks (email sending, Week 1) and app.publishing.tasks
+(scheduled-post publishing + the due-post check, Week 6) — see those
+modules for retry/timeout configuration.
+
+HONEST GAP, found during the Week 12 performance review: no recurring/
+scheduled Celery task exists for anything from Weeks 8-11 - Meta Ads
+analytics sync (app.analytics.sync_orchestrator), the optimization
+agent's campaign scan (app.optimization.orchestrator.scan_organization),
+or any orchestrator work. All of that currently only runs synchronously,
+on-demand, triggered by a real API request from a person (or would need
+an external cron hitting those endpoints) - there is no periodic
+background execution built into this app for that work. A production
+deployment relying on the optimization agent actually running on a
+schedule (rather than only when someone opens the dashboard and clicks
+"scan now") would need this added; not built this week, since it's real
+new infrastructure work, not a hardening fix, and is flagged explicitly
+in the final production-readiness report rather than silently assumed
+to exist.
 """
 from celery import Celery
 
