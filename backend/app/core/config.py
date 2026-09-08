@@ -23,7 +23,13 @@ class Settings(BaseSettings):
     # --- App ---
     APP_NAME: str = "AI Marketing Agent"
     APP_ENV: str = "development"
-    DEBUG: bool = True
+    # Defaults to False deliberately - the less safe value (True, which
+    # enables Starlette's debug mode and can expose stack traces
+    # containing local variable values, including decrypted secrets, in
+    # error responses) must be explicitly opted into for local dev via
+    # .env, never assumed. See app/main.py where this is wired into
+    # FastAPI(debug=...).
+    DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000"]
 

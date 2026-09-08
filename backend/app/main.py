@@ -14,6 +14,7 @@ app = FastAPI(
     title=settings.APP_NAME,
     version="0.1.0",
     description="AI marketing employee platform — Week 1 foundation",
+    debug=settings.DEBUG,
 )
 
 app.state.limiter = limiter

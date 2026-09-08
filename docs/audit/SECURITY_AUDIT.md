@@ -200,3 +200,73 @@ it confirms a caller belongs to *some* organization, not that a specific
 path-referenced resource belongs to that same organization. Both layers
 were checked explicitly in this sweep rather than the first implying the
 second.
+
+## 3. OAuth and Secrets Handling
+
+✅ **Reviewed in full — genuinely sound, with one real defense-in-depth
+gap found and fixed.**
+
+**Credential encryption** (`app/core/security.py`): Fernet (authenticated
+symmetric encryption), fail-closed at startup if
+`CREDENTIALS_ENCRYPTION_KEY` is unset, `decrypt_secret` returns `None` on
+tamper/invalid-key rather than raising or returning garbage.
+
+**No plaintext credential ever reaches an API response**: confirmed
+`ConnectedAccountPublic` (`app/schemas/connected_account.py`) has no
+token field at all — and its own docstring explicitly frames adding one
+as a security bug, not a missing feature, which is exactly the kind of
+guardrail comment worth having. Confirmed by direct grep that zero
+endpoint files anywhere call `decrypt_credentials_for_publishing` or
+`decrypt_secret` directly — decryption only happens deep in service-layer
+code that makes the actual outbound API call, never on any path that
+returns to the client.
+
+**OAuth CSRF protection (`state` parameter)**: reviewed
+`app.oauth.service._consume_state` in full. Generated with
+`secrets.token_urlsafe(32)` (256 bits, cryptographically secure). Genuine
+single-use enforcement — `used_at` is set *before* the token exchange
+happens, so a race condition replaying the same state can't succeed.
+Checks all 4 real failure modes (missing / already-used / expired /
+platform mismatch) and deliberately returns one generic error message for
+all of them rather than telling a would-be attacker which specific check
+their forged request failed — a genuinely thoughtful detail, not
+something I'd have flagged as missing if it were absent, but worth
+noting as evidence of real security-mindedness in the original build.
+
+### 🔧 FOUND AND FIXED: `DEBUG` setting defaulted to the unsafe value, and wasn't even wired up
+
+`app/core/config.py` had `DEBUG: bool = True` as the default, and
+`app/main.py` never actually passed it into `FastAPI(debug=...)` at all —
+so this specific flag currently controls nothing. Two separate problems
+worth separating:
+
+1. **Not currently exploitable** — Starlette's own debug mode (which can
+   expose full stack traces, including local variable values such as
+   decrypted secrets or tokens, in error responses to any client) was
+   never actually enabled by this setting, because nothing read it.
+2. **A real latent risk regardless**: a setting that exists, looks
+   security-relevant by name, defaults to the unsafe value, and is
+   currently inert is exactly the shape of thing a future change could
+   wire up (e.g. someone adding `debug=settings.DEBUG` to `FastAPI(...)`,
+   a natural and easy edit) without anyone noticing the default was wrong
+   — at which point it becomes live and unsafe by default in any
+   deployment that forgets to override it.
+
+**Fix**: changed the default to `False` (explicit opt-in to debug mode
+required via `.env` for local dev), and — since a fix that only changes
+an unused default doesn't actually close anything — genuinely wired it
+into `FastAPI(debug=settings.DEBUG)` so it becomes a real, functioning
+safety control rather than dead configuration that merely looks safe.
+
+**Verified**: `settings.DEBUG` is `False` by default, and `app.debug`
+(the live FastAPI instance) genuinely reflects it — checked both, not
+just the settings default in isolation.
+
+**CORS**: `BACKEND_CORS_ORIGINS` defaults to a specific localhost origin
+(dev-appropriate), not a wildcard — safe as a default, but genuinely
+requires explicit production configuration to the real frontend domain;
+flagged for the "needs manual configuration" section of the final report
+rather than left implicit.
+
+190/190 backend tests pass after this fix (no change in count — a config
+default and wiring correction, not new test coverage).
