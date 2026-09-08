@@ -232,6 +232,37 @@ def test_disconnect_account(client, seeded_roles, monkeypatch):
     assert len(list_resp.json()) == 0
 
 
+def test_reauthorize_account_returns_a_fresh_authorize_url(client, seeded_roles, monkeypatch):
+    """The one route in this file that had no test at all: reauthorize
+    should return a real, usable authorize_url for a person to
+    re-connect an account whose token may have expired or been
+    revoked - distinct from a fresh /connect, since it's tied to an
+    EXISTING account_id rather than starting a brand-new connection."""
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_ID", "test-id")
+    monkeypatch.setattr(settings, "LINKEDIN_CLIENT_SECRET", "test-secret")
+    headers = _register_and_org_headers(client)
+    project = _create_project(client, headers)
+
+    start_resp = client.post(
+        "/api/v1/oauth/linkedin_page/connect", json={"project_id": project["id"]}, headers=headers
+    )
+    state_value = parse_qs(urlparse(start_resp.json()["authorize_url"]).query)["state"][0]
+
+    with patch("httpx.Client.post", _mock_post):
+        client.get(
+            "/api/v1/oauth/linkedin_page/callback",
+            params={"code": "code1", "state": state_value},
+            follow_redirects=False,
+        )
+
+    account_id = client.get("/api/v1/connected-accounts", headers=headers).json()[0]["id"]
+
+    reauthorize_resp = client.post(f"/api/v1/connected-accounts/{account_id}/reauthorize", headers=headers)
+    assert reauthorize_resp.status_code == 200
+    assert "authorize_url" in reauthorize_resp.json()
+    assert reauthorize_resp.json()["authorize_url"].startswith("http")
+
+
 def test_connected_accounts_isolated_across_organizations(client, seeded_roles, monkeypatch):
     monkeypatch.setattr(settings, "LINKEDIN_CLIENT_ID", "test-id")
     monkeypatch.setattr(settings, "LINKEDIN_CLIENT_SECRET", "test-secret")
