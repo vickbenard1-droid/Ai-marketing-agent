@@ -555,3 +555,85 @@ also the first permanent test file for the orchestrator at all).
 (e.g. whether any other AI-facing surface can cause a real side effect
 from within its own output) and spending controls specifically —
 continuing next.
+
+## 9. Spending Controls (dedicated review)
+
+**Method**: found every real call site of the only two functions in the
+entire codebase capable of increasing real Meta Ads spend
+(`execute_budget_change`, `execute_campaign_status_change` in
+`app.meta_ads.execution_service`) by exhaustive grep, then verified each
+site's protection — rather than re-verify the spend guard's own logic
+again (already covered in the original Week 7/9 builds and referenced
+throughout this audit).
+
+**Exactly 3 real call sites exist**: the direct `POST
+/meta-ads/approval-requests/{id}/execute` API endpoint, Week 9's
+`process_decision`'s manual/assisted paths, and Week 9's autonomous
+path. **The spend guard check lives inside the two execution functions
+themselves**, not duplicated (or, worse, omitted) at each call site —
+meaning every caller structurally inherits the protection and there is
+no way to reach real spend-changing behavior that bypasses it without
+editing those two functions directly.
+
+**Verified the autonomous path's defense-in-depth concretely, not just
+architecturally**: the autonomous execution path has TWO independent
+checks in sequence — Week 9's own `safety.assert_can_execute_autonomously`
+(whitelist, autonomy level, daily action count, budget-increase percent,
+Week-9-configured daily spend) runs first, then the *same* Week 7 spend
+guard every other execution path uses runs again inside
+`execute_budget_change` itself. Constructed a real test that deliberately
+configures Week 9's own checks to be maximally permissive (generous
+limits, correctly whitelisted, AUTONOMOUS mode) while leaving Week 7's
+`AdAccountSpendLimit` entirely unconfigured — confirmed the system still
+correctly blocks the autonomous execution via the second, independent
+layer, with the `OptimizationDecision` status correctly landing on
+`EXECUTION_FAILED` (never silently `EXECUTED`) and the campaign's real
+budget genuinely unchanged afterward. This is real evidence of two
+independently-failing-closed layers, not one relying on the other to
+catch what it misses.
+
+**AI output is never executed as code**: searched the entire codebase for
+`eval(`, `exec(`, AI-generated text interpolated into a raw SQL query, or
+any comparable code-injection pattern — zero matches. Every AI response
+in this app is consistently treated as data: parsed via
+`extract_json_object` and validated field-by-field against closed
+enums/the real agent registry (see Section 8), never as instructions to
+run.
+
+## Summary of Sections 1–9 (Security Audit)
+
+10 real, exploitable-or-genuinely-latent issues found and fixed across
+the review, from a real cross-tenant data leak down to a config default
+that wasn't yet wired to anything:
+
+1. Cross-tenant read leak — Meta Ads spend limit (Section 2)
+2. Cross-tenant mutation — Meta Ads emergency stop (Section 2)
+3. Content-type spoofing in file uploads (earlier session, verified this
+   session — see commit `6331817`)
+4. `DEBUG` defaulted unsafe and was unwired (Section 3)
+5. Unbounded conversion value on the public tracking endpoint (Section 6)
+6. Global default rate limit never actually enforced — missing
+   `SlowAPIMiddleware` (Section 7)
+7. Orchestrator approval pause controllable by the AI's own plan output
+   (Section 8) — the most significant finding
+
+Every fix was verified with a real, targeted exploit or behavioral test
+(not just a unit assertion of the fix's own logic), and every one has
+permanent regression coverage. Backend test count grew from 186 (start
+of Week 12) to 204, entirely through real security regression tests —
+no feature work.
+
+**Not yet reviewed**: database security and file uploads were reviewed
+in an earlier session (see commit `6331817` for the file-upload finding)
+but do not yet have their own dedicated write-up section in this
+document — will backfill before the final report so the document is a
+complete, accurate record of everything actually checked, not just what
+was checked in this continuous session.
+
+**Still to review under the original Week 12 security checklist**: none
+remaining from the spec's explicit list — all 13 items (Authentication,
+Authorization, Organization isolation, API security, OAuth, Secrets,
+Database security, File uploads, Webhooks, Rate limiting, Prompt
+injection, AI tool abuse, Spending controls) have now been covered at
+least once. Moving to Testing, Performance, Monitoring, Billing,
+Deployment, UX, the end-to-end simulation, and Documentation next.
