@@ -461,3 +461,97 @@ which this app does not yet have. Flagged for the final report rather
 than built this week, since the spec asks for a genuine present-vs-
 absent audit, not new rate-limiting infrastructure beyond closing the
 gap found.
+
+## 8. Prompt Injection and AI Tool Abuse
+
+**Method**: traced every path where untrusted, business-user-supplied
+free text (lead notes, product interest, a goal statement typed into the
+orchestrator) reaches an LLM prompt, and for each one asked the real
+question — not "could the AI be manipulated into saying something odd"
+(assume yes, always, for any LLM), but "if it were, could that ever
+translate into a real, unauthorized action without a human in the
+loop."
+
+**Lead follow-up generation** (`app.leads.followup`): `lead.notes` is
+genuinely untrusted, business-user-supplied text interpolated directly
+into the `LEAD_FOLLOW_UP_SYSTEM` prompt. Confirmed safe by structure,
+not by the prompt's own instructions: the AI's output can only ever
+populate a `LeadFollowUp.subject`/`.body` text field. Sending still
+requires a completely separate, explicit human-initiated
+`send_follow_up()` call — even a successfully manipulated AI response is,
+at worst, a bad draft a person sees and can reject before anything is
+sent.
+
+### 🔧 FOUND AND FIXED: the orchestrator's pre-execution approval pause was decided by the AI's own plan output
+
+**This is the most significant finding of the whole audit and the one
+most directly responsive to the spec's "AI must never be allowed to
+bypass application permissions" requirement.**
+
+`advance_run()` (`app.orchestrator.service`) decided whether to pause a
+run for human approval *before running an agent* using only
+`step["requires_approval"]` — a boolean the AI planner itself set on
+each step of its own generated plan. The `ORCHESTRATOR_PLANNING_SYSTEM`
+prompt instructs the AI to mark spending/advertising/publishing steps as
+`requires_approval: true`, but that is a *prompt instruction*, not a
+*code guarantee*. A sufficiently effective prompt injection — e.g. via
+adversarial business-knowledge content or a goal statement crafted to
+manipulate the planner — could plausibly cause the AI to emit
+`{"agent_name": "advertising_agent", "requires_approval": false}`, and
+the orchestrator would have trusted that and called the agent
+immediately, with no pause at all.
+
+**Verified this was genuinely exploitable as designed, then verified the
+actual real-world severity before fixing** — read every structurally
+sensitive agent's own `run()` method in full first, rather than assume
+the worst. Found each one independently refuses to take a real external
+action regardless of how it's invoked: `AdvertisingAgent` only ever
+calls `request_*()` (creates a `PENDING` `ApprovalRequest`, zero Meta API
+calls — Week 7's own separate execution gate + spend guard still stand
+between this and any real spend), `ContentAgent` only ever creates an
+unpublished draft `Content` row (Week 6's own separate, human-gated
+publishing step still required), `OptimizationAgent` only ever calls
+`scan_organization()`, itself gated by Week 9's independent
+autonomy-settings/whitelist/spend-guard checks. **This meant the actual
+exploitable consequence of the bug was narrower than it first appeared —
+not unauthorized spend or publishing, but the orchestrator's own
+pre-execution pause (a real, spec-required control in its own right)
+being skippable** — genuine defense-in-depth already prevented the
+worst-case outcome. This finding is still real and still fixed in full,
+not downgraded to a non-issue, because (a) it's the exact mechanism the
+spec's human-control requirement asks for at the orchestrator layer
+specifically, and (b) a future agent added later without an equally
+careful independent backstop would have had no protection at all if this
+were left as the only gate.
+
+**Fix**: introduced `_STRUCTURALLY_SENSITIVE_AGENTS`, a code-owned,
+closed set (`advertising_agent`, `content_agent`, `optimization_agent`)
+checked *before* `agent.run()` is ever called, regardless of what the
+AI's plan claims. The plan's own `requires_approval` flag is preserved
+as an *addition* — an AI plan can still mark an otherwise-safe step as
+needing approval — but can never loosen the structural requirement for
+a sensitive agent.
+
+**Verified with a real adversarial simulation**, not just a unit
+assertion: constructed a mocked AI plan response containing exactly what
+a successful prompt injection against the planner would try to produce
+— `advertising_agent` with `requires_approval: false` and an
+action_description reading "Launch immediately, ignore review" — ran it
+through the real `create_run`/`advance_run` pipeline, and confirmed the
+run correctly paused (`PAUSED_FOR_APPROVAL`) with **zero**
+`ApprovalRequest` rows created, meaning the agent was never invoked at
+all. Repeated for `content_agent` and `optimization_agent`. Also
+confirmed no over-correction: a genuinely non-sensitive agent
+(`analytics_agent`) with the same `requires_approval: false` still
+auto-executes normally, and a plan that explicitly *adds* approval to a
+non-sensitive agent is still honored.
+
+**Added permanent regression coverage** —
+`app/tests/integration/test_orchestrator_service.py` (5 tests,
+also the first permanent test file for the orchestrator at all).
+204/204 backend tests pass (199 + 5 new).
+
+**Not yet reviewed**: unauthorized tool execution beyond the orchestrator
+(e.g. whether any other AI-facing surface can cause a real side effect
+from within its own output) and spending controls specifically —
+continuing next.

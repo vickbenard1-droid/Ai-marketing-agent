@@ -98,6 +98,31 @@ def _record_decision(db: Session, *, run: OrchestrationRun, agent_name: str, sum
     db.add(AgentDecision(organization_id=run.organization_id, agent_name=agent_name, goal_description=run.goal_text, decision_summary=summary, context_json={"orchestration_run_id": str(run.id)}))
 
 
+# Code-owned, closed set of agents considered inherently sensitive -
+# NEVER derived from the AI's own plan output. A prompt injection that
+# manipulated the planner into emitting requires_approval: false for one
+# of these agents must not be able to skip the pre-execution pause below.
+# Every one of these agents also independently refuses to take a real
+# external action on its own authority (see each agent's own module
+# docstring - AdvertisingAgent only ever creates a PENDING
+# ApprovalRequest, ContentAgent only ever creates an unpublished draft,
+# OptimizationAgent's own scan only ever creates decisions gated by
+# Week 9's separate autonomy/whitelist/spend-guard checks) - this set
+# is a second, independent line of defense at the orchestrator layer
+# itself, not the only one, and is deliberately still enforced even
+# though each agent would also refuse the unsafe action on its own.
+_STRUCTURALLY_SENSITIVE_AGENTS = frozenset({"advertising_agent", "content_agent", "optimization_agent"})
+
+
+def _step_requires_approval(step: dict) -> bool:
+    """The plan's own requires_approval flag is honored as an ADDITION,
+    never a way to loosen the structural requirement below - an AI plan
+    can mark a normally-safe step as requiring approval (e.g. out of
+    caution for an unusual goal), but can never mark a structurally
+    sensitive agent as NOT requiring it."""
+    return bool(step.get("requires_approval", False)) or step["agent_name"] in _STRUCTURALLY_SENSITIVE_AGENTS
+
+
 def advance_run(db: Session, *, organization_id: uuid.UUID, run: OrchestrationRun, actor_user_id: Optional[uuid.UUID] = None) -> OrchestrationRun:
     """
     Executes exactly ONE step of the plan, then returns. Never loops
@@ -123,12 +148,13 @@ def advance_run(db: Session, *, organization_id: uuid.UUID, run: OrchestrationRu
         db.commit()
         return run
 
-    log = AgentActivityLog(organization_id=organization_id, orchestration_run_id=run.id, agent_name=step["agent_name"], step_number=run.current_step, action_description=step["action_description"], reasoning=f"Part of the plan for goal: {run.goal_text}", status=ActivityStatus.IN_PROGRESS, requires_approval=step["requires_approval"])
+    step_requires_approval = _step_requires_approval(step)
+    log = AgentActivityLog(organization_id=organization_id, orchestration_run_id=run.id, agent_name=step["agent_name"], step_number=run.current_step, action_description=step["action_description"], reasoning=f"Part of the plan for goal: {run.goal_text}", status=ActivityStatus.IN_PROGRESS, requires_approval=step_requires_approval)
     db.add(log)
     db.commit()
     db.refresh(log)
 
-    if step["requires_approval"]:
+    if step_requires_approval:
         log.status = ActivityStatus.AWAITING_APPROVAL
         run.status = OrchestrationRunStatus.PAUSED_FOR_APPROVAL
         db.commit()
