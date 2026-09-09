@@ -171,3 +171,53 @@ trigger (on-demand endpoint at minimum, scheduled execution for real
 production use) before this app's analytics/sales/optimization features
 can be considered functional against real, current data in production.**
 
+## 5. API Monitoring
+
+**Method**: found the real health-check endpoint the Dockerfile's
+`HEALTHCHECK` directive depends on, and checked whether it genuinely
+verifies anything beyond the process being alive.
+
+### 🔧 Fixed: `/health` was a pure liveness probe with zero dependency verification
+
+Confirmed directly: the original `/health` handler had no `Depends(get_db)`
+parameter at all — it could not have failed regardless of the real
+database's state. Since `backend/Dockerfile`'s own `HEALTHCHECK`
+directive points at this exact endpoint, this meant a completely broken
+database connection (pool exhaustion, rotated/wrong credentials, a
+network partition — realistic, common production failure modes) would
+have been entirely invisible to container orchestration, which would
+keep routing real user traffic to a container that cannot actually serve
+any real request.
+
+**Fixed, unlike the other Monitoring findings this week** — this one
+was safe and appropriately scoped to fix immediately (small, well-
+contained, directly testable, doesn't touch core business logic): added
+a real `Depends(get_db)` and a genuine `SELECT 1` query against it,
+returning `503 Service Unavailable` (not `200`) on failure, with the
+real underlying error included in the response detail.
+
+**Verified with real success and real failure scenarios**, not just the
+happy path: confirmed a working database returns `200`, and confirmed a
+genuinely broken database connection (a mocked session whose `.execute`
+call raises) correctly returns `503`.
+
+**Added permanent regression coverage** — the first test file for this
+endpoint at all (2 tests). 254/254 backend tests pass (252 + 2 new).
+
+## Summary of Monitoring Review (Sections 1–5)
+
+Two significant, real gaps requiring genuine new work before production
+(not fixed this week, both documented with specific, concrete
+recommendations): no error-tracking service, and effectively no
+application logging. One materially important finding that goes beyond
+monitoring into functional correctness: the Meta Ads analytics sync is
+currently unreachable from the deployed application entirely, not just
+unscheduled — this should be treated as a blocker for trusting any
+analytics/sales/optimization feature against real data, not merely a
+monitoring nicety. AI usage monitoring is genuinely sound and
+architecturally enforced. Scheduled-post and optimization-scan
+observability are genuinely real at the per-resource level. One real,
+appropriately-scoped fix was made this week: `/health` now genuinely
+verifies database connectivity rather than always reporting success.
+
+
