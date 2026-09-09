@@ -141,3 +141,61 @@ an unstated assumption a reader might otherwise make.
 **Not yet reviewed**: API response time under concurrent load, AI
 request latency/timeout handling, caching, frontend loading. Continuing
 next.
+
+## 3. AI Request Latency and Worker Concurrency
+
+**Method**: read the real AI provider client's timeout/error handling in
+full, then traced whether any AI-generation call site offloads the
+actual external API call to a background task (Celery) or runs it
+synchronously inside the request-response cycle, then checked the real
+production server command to understand actual concurrency capacity —
+each step verified against real code/config, not assumed from the
+others.
+
+✅ **The AI provider client's own request handling is genuinely sound**:
+a real, explicit 60-second `httpx` timeout, and a proper distinct
+exception hierarchy (`AIProviderTimeoutError`, `AIProviderAuthError`,
+`AIProviderRateLimitError`, `AIProviderResponseError`) rather than one
+generic catch-all, plus defensive parsing of the response shape itself.
+
+### ⚠️ Found, not fixed this week: single Uvicorn worker + fully synchronous AI calls is a real production capacity risk
+
+Confirmed by direct search: **no AI-generation call site anywhere in
+this app offloads the external AI API call to a background task** —
+content generation, campaign generation, orchestrator planning, the
+sales agent, and the optimization decision engine all call the AI
+provider synchronously, inside the request-response cycle, meaning a
+real web worker is held for the full duration of that external call
+(up to the real 60-second timeout in the worst case).
+
+Checked the real production server command (`backend/Dockerfile`'s
+default `CMD`) to see how much that matters in practice: **`uvicorn
+app.main:app --host 0.0.0.0 --port 8000`, with no `--workers` flag at
+all** — Uvicorn defaults to a single worker process. Confirmed
+`gunicorn` (the standard production pattern for running multiple Uvicorn
+worker processes) isn't even in `requirements.txt`.
+
+**Combined, honestly assessed**: as currently configured, one slow or
+hanging AI request (a real, not-hypothetical scenario — model provider
+latency spikes happen) can genuinely stall every other request to the
+entire backend, for every organization, for up to a minute. This is a
+real, significant production risk, not a theoretical one — everything
+else this app does (browsing leads, checking analytics, approving a
+campaign) would appear to hang for any user, anywhere, while one AI call
+elsewhere is slow.
+
+**Why not fixed this week**: the correct, standard fix (Gunicorn managing
+multiple Uvicorn workers, or moving AI generation calls to Celery tasks
+the way email/publishing already correctly do) is genuine infrastructure
+work — adding a new dependency and changing the production run command
+at minimum, more invasively restructuring several AI call sites at
+worst. Given Week 12's explicit framing (harden what exists, don't add
+major new architecture) and that this specific fix deserves real load
+testing before being trusted, it's recorded here in full rather than
+patched hastily. This is flagged as a genuine must-address item in the
+Deployment section of the final report, not silently left as an
+implementation detail — a single-worker production deployment of this
+app should be considered NOT production-ready for real concurrent
+traffic until addressed.
+
+**Not yet reviewed**: caching, frontend loading. Continuing next.
