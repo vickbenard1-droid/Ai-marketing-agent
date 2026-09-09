@@ -199,3 +199,87 @@ app should be considered NOT production-ready for real concurrent
 traffic until addressed.
 
 **Not yet reviewed**: caching, frontend loading. Continuing next.
+
+## 4. Caching
+
+**Method**: searched the entire application codebase for any real
+caching usage (Redis client calls, `lru_cache`, `cachetools`, or any
+comparable pattern) beyond the config layer and Celery's own broker/
+result-backend wiring, to determine whether caching genuinely exists
+anywhere versus is only referenced in configuration.
+
+### ⚠️ Found, not fixed this week: no application-level caching exists anywhere, and this connects directly to the worker-concurrency finding above
+
+Confirmed by direct codebase search: `REDIS_URL`/`REDIS_HOST` etc. are
+configured, and Redis is genuinely used as the Celery broker and result
+backend — but **nothing in the application ever uses Redis (or any
+other cache) to actually cache a computed value**. Every request that
+computes something non-trivial (analytics rollups, the sales agent's
+data assembly, `app.orchestrator.memory.get_relevant_memory`) recomputes
+it fully from the database on every single call, even for two identical
+requests seconds apart.
+
+**A genuine, worth-stating connection to the AI/worker-concurrency
+finding (Section 3)**: `app/core/rate_limit.py`'s own docstring already
+honestly admits its limiter is in-memory ("fine for local dev this
+week"). Directly confirmed slowapi's real default storage backend is
+`MemoryStorage` — genuinely per-process, not shared. This means if
+Section 3's fix (multiple Uvicorn/Gunicorn worker processes) is applied
+*without* also switching the rate limiter to Redis-backed storage, the
+*effective* rate limit silently becomes `configured_limit ×
+worker_count` — a real, easy-to-miss regression where fixing one real
+problem (worker concurrency) would quietly weaken another already-fixed
+one (the rate-limiting gap closed earlier this week) unless both are
+addressed together. Recording this connection explicitly here so it
+isn't missed when Section 3's fix is eventually implemented.
+
+**Not fixed this week**: same reasoning as Sections 2 and 3 — genuine
+new infrastructure (a real caching layer, and separately, migrating the
+rate limiter to Redis-backed storage) rather than a hardening fix to
+existing behavior, and this specific pairing (worker scaling + shared
+rate-limit storage) needs to be implemented and tested together, not
+independently, to avoid exactly the silent regression described above.
+
+## 5. Frontend Loading
+
+**Method**: ran a real, current production build (`next build`) rather
+than rely on bundle-size figures from earlier weeks' build logs, to get
+an accurate, up-to-date picture.
+
+✅ **Bundle sizes are genuinely small and consistent across the whole
+app — no red flags found.** Every one of the 34 real routes has a First
+Load JS between 88 kB and 109 kB, with the 87.3 kB shared baseline
+common to all of them. No single page is a dramatic outlier heavier than
+the rest, which is the usual symptom of an un-code-split heavy
+dependency (e.g. a charting library or rich-text editor) leaking into
+the shared bundle rather than being loaded only on the page that needs
+it. `next.config.js` itself is minimal and unremarkable — no red flags,
+nothing to correct.
+
+**Not separately load-tested**: actual client-side runtime performance
+(time-to-interactive under real network conditions, React render
+performance on data-heavy pages like the orchestrator activity timeline
+or the leads pipeline board with many real leads) was not measured this
+week — bundle size is a reasonable proxy but not a substitute for real
+runtime profiling, which is out of scope for this audit pass and would
+be a reasonable pre-launch check rather than a Week 12 hardening task.
+
+## Summary of Performance Review (Sections 1–5)
+
+Two genuine, significant findings requiring real infrastructure work
+before production (not silently downgraded to minor notes): **(1)** no
+periodic/scheduled background execution exists anywhere (Section 2),
+and **(2)** the combination of fully-synchronous AI calls with a
+single-worker production server command is a real capacity risk that
+should block production traffic until addressed (Section 3), which
+itself has a direct, documented interaction with the rate limiter's
+in-memory storage (Section 4) that must be fixed together, not
+separately. Database query patterns are genuinely sound (Section 1,
+with one honestly-scoped moderate finding), and frontend bundle size is
+genuinely healthy (Section 5) with no action needed.
+
+No code changes were needed to close any Performance finding this week
+beyond the one docstring correction (Section 2) — every other item is a
+real architectural gap requiring genuine new work, correctly deferred to
+the Deployment section of the final report rather than rushed.
+
