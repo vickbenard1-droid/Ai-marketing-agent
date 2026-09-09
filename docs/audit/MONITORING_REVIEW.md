@@ -85,3 +85,89 @@ rather than attempt a full retrofit under Week 12's time constraints.
 
 **Not yet reviewed**: AI usage monitoring, API monitoring, background
 job monitoring, campaign sync monitoring. Continuing next.
+
+## 3. AI Usage Monitoring
+
+✅ **Genuinely sound, and architecturally enforced, not just followed by
+convention.**
+
+A real endpoint (`GET /ai-usage/summary`) returns real, computed
+per-organization usage: total/successful/failed calls, real input/output
+token totals, a real computed `total_estimated_cost_usd` (not a
+placeholder), and a breakdown by source.
+
+**Verified this is architecturally impossible to bypass, not just
+usually followed**: confirmed `app.ai_usage.service.generate_and_track`
+is the *only* place in the entire codebase that calls a provider's
+`.generate()` method directly — its own docstring states this is
+deliberate ("so no call site can forget to log usage"). Cross-checked
+all 15 real call sites that obtain a provider instance
+(`get_ai_provider_for_task`) across every AI-generating module built
+across all 11 weeks (content generation, campaign generation, SEO,
+chat, the orchestrator's planner, every one of the 7 spec agents that
+make their own AI call, the sales agent, lead follow-up) — every one
+routes through the single tracked wrapper. No AI usage in this app can
+occur without being recorded.
+
+## 4. Background Job Monitoring and Campaign Sync Monitoring
+
+**Method**: checked whether the real per-attempt records these systems
+already produce (`PublishingLog` for Week 6 publishing,
+`OptimizationDecision`/`AgentActivityLog` for Week 9/11) are actually
+surfaced anywhere observable, and separately, whether the Week 7/8 Meta
+Ads sync functions are reachable from anywhere in the real application
+at all — a more fundamental question than "is it monitored."
+
+✅ **Scheduled post publishing has real, genuine observability at the
+per-post level.** `GET /scheduled-posts/{id}` (`ScheduledPostDetail`)
+includes the real `publishing_logs` history for that post — every
+attempt, its outcome, real data, not a stub. No dedicated org-wide "show
+me every failed publish across all posts" view exists, but the
+underlying data and a real per-post drill-down both genuinely exist.
+
+✅ **The optimization agent's scan is genuinely observable.** `POST
+/meta-ads/meta-campaigns/{id}/scan` triggers a real, on-demand scan
+(tested this week), and its results are real `OptimizationDecision`
+rows, visible via `GET /optimization/decisions` — real monitoring exists
+here, on-demand rather than scheduled (see Section 2 of the Performance
+review for the scheduling gap itself).
+
+### ⚠️ Found, not fixed this week: the Meta Ads analytics sync (Week 8) is not just unmonitored — it is currently unreachable from anywhere in the deployed application
+
+This is a more fundamental finding than a monitoring gap. Confirmed by
+exhaustive search: `app.analytics.sync_orchestrator.
+sync_meta_insights_for_organization` and `app.meta_ads.sync_service`'s
+`sync_campaign_status`/`sync_insights` have **zero callers anywhere in
+the real application** — no API endpoint, no Celery task, nothing.
+These are real, correct functions (verified extensively via direct
+function calls during their original Week 7/8 build and again during
+this audit's own performance measurements), but as currently deployed,
+**Meta Ads analytics data never actually syncs into `MetricSnapshot` at
+all** — the unified analytics dashboard, the sales agent, and the
+optimization agent's own signal evaluation would all be working from
+permanently stale (in practice, entirely empty, since nothing ever
+populates it) data in a real deployment, regardless of the scheduling
+question raised in the Performance review.
+
+**This materially changes, and should replace, part of what Section 2
+of the Performance review said**: that section correctly identified "no
+Beat schedule exists" as the gap; this finding is more specific and more
+severe for this one case specifically — there isn't even a manual
+trigger to schedule in the first place. **Fixing this requires two
+things, not one**: (1) exposing sync as a real, callable action (at
+minimum an on-demand API endpoint, matching the pattern the optimization
+scan already correctly has), and (2) separately, scheduling it to run
+automatically (the Beat gap). Both are real, necessary, and distinct
+pieces of missing work.
+
+**Not fixed this week**: same reasoning as every other Monitoring/
+Performance finding — this is real new functionality (wiring an
+endpoint or task to genuinely unreachable, if correct, business logic),
+not a hardening fix, and deserves to be built and tested properly rather
+than added hastily this late in the week. Flagged as a concrete,
+specific, and now correctly-characterized-as-more-severe item for the
+final report: **the Meta Ads analytics sync must be wired to a real
+trigger (on-demand endpoint at minimum, scheduled execution for real
+production use) before this app's analytics/sales/optimization features
+can be considered functional against real, current data in production.**
+
