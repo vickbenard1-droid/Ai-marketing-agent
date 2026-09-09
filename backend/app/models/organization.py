@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from app.models.connected_account import ConnectedAccount
     from app.models.audit_log import AuditLog
     from app.models.business_profile import BusinessProfile
+    from app.models.subscription_plan import SubscriptionPlan
 
 
 class Organization(UUIDPKMixin, TimestampMixin, Base):
@@ -40,12 +41,22 @@ class Organization(UUIDPKMixin, TimestampMixin, Base):
 
     # Placeholder for future billing tiers — not enforced this week.
     plan_type: Mapped[str] = mapped_column(String(50), default="free", nullable=False)
+    # Week 12: the REAL, enforced subscription relationship - see
+    # app.models.subscription_plan.SubscriptionPlan and app.billing.service
+    # for real usage-limit enforcement against it. Nullable so an org
+    # created before this week (or during a migration window) isn't left
+    # in an invalid state; app.billing.service treats a null plan as
+    # defaulting to the Free tier's limits, never as "no limit."
+    subscription_plan_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("subscription_plans.id", ondelete="SET NULL"), nullable=True
+    )
     # Distinguishes an agency (manages multiple clients) from a single business.
     is_agency: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     members: Mapped[List["OrganizationMember"]] = relationship(
         "OrganizationMember", back_populates="organization", cascade="all, delete-orphan"
     )
+    subscription_plan: Mapped[Optional["SubscriptionPlan"]] = relationship("SubscriptionPlan")
     projects: Mapped[List["Project"]] = relationship(
         "Project", back_populates="organization", cascade="all, delete-orphan"
     )

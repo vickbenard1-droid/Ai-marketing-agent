@@ -4,6 +4,7 @@ Import every model here so that:
 2. Relationship string references (e.g. "OrganizationMember") resolve correctly.
 """
 from app.models.user import User                          # noqa: F401
+from app.models.subscription_plan import SubscriptionPlan  # noqa: F401
 from app.models.organization import (                     # noqa: F401
     Organization,
     Role,
