@@ -221,7 +221,7 @@ def test_delete_campaign_draft(client, seeded_roles):
 # --------------------------------------------------------------------------
 # Generation
 # --------------------------------------------------------------------------
-def test_generate_campaign_full_flow(client, seeded_roles, monkeypatch):
+def test_generate_campaign_full_flow(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
@@ -247,7 +247,7 @@ def test_generate_campaign_requires_can_execute_ai_actions(client, seeded_roles,
     assert resp.status_code == 403
 
 
-def test_generate_campaign_records_usage(client, seeded_roles, db_session, monkeypatch):
+def test_generate_campaign_records_usage(client, seeded_roles, seeded_plans, db_session, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
@@ -262,7 +262,7 @@ def test_generate_campaign_records_usage(client, seeded_roles, db_session, monke
     assert logs[0].output_tokens == 600
 
 
-def test_generate_campaign_with_malformed_ai_response_returns_502(client, seeded_roles, monkeypatch):
+def test_generate_campaign_with_malformed_ai_response_returns_502(client, seeded_roles, seeded_plans, monkeypatch):
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
@@ -284,7 +284,7 @@ def test_generate_campaign_with_malformed_ai_response_returns_502(client, seeded
     assert detail["status"] == "draft"
 
 
-def test_regenerate_replaces_prior_variants(client, seeded_roles, monkeypatch):
+def test_regenerate_replaces_prior_variants(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
@@ -301,7 +301,7 @@ def test_regenerate_replaces_prior_variants(client, seeded_roles, monkeypatch):
 # --------------------------------------------------------------------------
 # Ad copy variant editing + approval
 # --------------------------------------------------------------------------
-def test_edit_ad_copy_variant(client, seeded_roles, monkeypatch):
+def test_edit_ad_copy_variant(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
@@ -326,7 +326,7 @@ def test_approve_campaign_requires_generated_status(client, seeded_roles):
     assert resp.status_code == 400
 
 
-def test_approve_campaign_full_flow(client, seeded_roles, monkeypatch):
+def test_approve_campaign_full_flow(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
@@ -338,7 +338,7 @@ def test_approve_campaign_full_flow(client, seeded_roles, monkeypatch):
     assert resp.json()["approved_at"] is not None
 
 
-def test_cannot_edit_approved_campaign(client, seeded_roles, monkeypatch):
+def test_cannot_edit_approved_campaign(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
@@ -354,7 +354,7 @@ def test_cannot_edit_approved_campaign(client, seeded_roles, monkeypatch):
 # --------------------------------------------------------------------------
 # Experiments
 # --------------------------------------------------------------------------
-def test_create_headline_experiment(client, seeded_roles, monkeypatch):
+def test_create_headline_experiment(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
@@ -371,7 +371,7 @@ def test_create_headline_experiment(client, seeded_roles, monkeypatch):
     assert set(resp.json()["variant_ids"]) == set(variant_ids)
 
 
-def test_create_experiment_with_unknown_variant_id_fails(client, seeded_roles, monkeypatch):
+def test_create_experiment_with_unknown_variant_id_fails(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
@@ -438,7 +438,7 @@ def test_list_experiments(client, seeded_roles):
 # --------------------------------------------------------------------------
 
 
-def test_content_manager_can_generate_despite_lacking_campaign_management_permission(client, seeded_roles, monkeypatch):
+def test_content_manager_can_generate_despite_lacking_campaign_management_permission(client, seeded_roles, seeded_plans, monkeypatch):
     """content_manager has can_execute_ai_actions=True but
     can_manage_campaigns=False (confirmed against the real role matrix in
     app/db/seed_roles.py) - proves generate's permission gate is

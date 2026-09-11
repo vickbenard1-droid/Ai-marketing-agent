@@ -74,7 +74,7 @@ def _vision_provider(description: str):
     return ClaudeProvider(api_key="test-key", transport=httpx.MockTransport(handler))
 
 
-def test_upload_image_asset_full_flow(client, seeded_roles, monkeypatch):
+def test_upload_image_asset_full_flow(client, seeded_roles, seeded_plans, monkeypatch):
     _configure_s3(monkeypatch)
     monkeypatch.setattr(
         "app.content.asset_service.get_ai_provider_for_task",
@@ -157,7 +157,7 @@ def test_upload_asset_rejects_spoofed_content_type(client, seeded_roles):
     mock_s3_client.put_object.assert_not_called()
 
 
-def test_list_and_get_assets(client, seeded_roles, monkeypatch):
+def test_list_and_get_assets(client, seeded_roles, seeded_plans, monkeypatch):
     _configure_s3(monkeypatch)
     monkeypatch.setattr(
         "app.content.asset_service.get_ai_provider_for_task",
@@ -185,7 +185,7 @@ def test_list_and_get_assets(client, seeded_roles, monkeypatch):
         assert get_resp.json()["id"] == asset_id
 
 
-def test_assets_isolated_across_organizations(client, seeded_roles, monkeypatch):
+def test_assets_isolated_across_organizations(client, seeded_roles, seeded_plans, monkeypatch):
     _configure_s3(monkeypatch)
     monkeypatch.setattr(
         "app.content.asset_service.get_ai_provider_for_task",
@@ -209,7 +209,7 @@ def test_assets_isolated_across_organizations(client, seeded_roles, monkeypatch)
     assert resp.status_code == 404
 
 
-def test_delete_asset(client, seeded_roles, monkeypatch):
+def test_delete_asset(client, seeded_roles, seeded_plans, monkeypatch):
     _configure_s3(monkeypatch)
     monkeypatch.setattr(
         "app.content.asset_service.get_ai_provider_for_task",

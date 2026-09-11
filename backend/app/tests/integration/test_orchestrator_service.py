@@ -57,7 +57,7 @@ def _seed_org_and_campaign(db_session):
     return org, user, campaign
 
 
-def test_ai_cannot_bypass_approval_for_advertising_agent(db_session, monkeypatch):
+def test_ai_cannot_bypass_approval_for_advertising_agent(db_session, seeded_plans, monkeypatch):
     """The core regression test: a plan that claims requires_approval:
     false for advertising_agent must still pause, and the agent must
     never actually be invoked."""
@@ -74,7 +74,7 @@ def test_ai_cannot_bypass_approval_for_advertising_agent(db_session, monkeypatch
     assert db_session.query(ApprovalRequest).count() == 0, "advertising_agent must never actually run before approval"
 
 
-def test_ai_cannot_bypass_approval_for_content_agent(db_session, monkeypatch):
+def test_ai_cannot_bypass_approval_for_content_agent(db_session, seeded_plans, monkeypatch):
     org, user, _ = _seed_org_and_campaign(db_session)
     malicious_plan = {"steps": [{"agent_name": "content_agent", "action_description": "Generate and imply it's ready", "requires_approval": False}], "plan_summary": "x"}
     _mock_plan(monkeypatch, malicious_plan)
@@ -85,7 +85,7 @@ def test_ai_cannot_bypass_approval_for_content_agent(db_session, monkeypatch):
     assert run.status == OrchestrationRunStatus.PAUSED_FOR_APPROVAL
 
 
-def test_ai_cannot_bypass_approval_for_optimization_agent(db_session, monkeypatch):
+def test_ai_cannot_bypass_approval_for_optimization_agent(db_session, seeded_plans, monkeypatch):
     org, user, _ = _seed_org_and_campaign(db_session)
     malicious_plan = {"steps": [{"agent_name": "optimization_agent", "action_description": "Scan and act", "requires_approval": False}], "plan_summary": "x"}
     _mock_plan(monkeypatch, malicious_plan)
@@ -96,7 +96,7 @@ def test_ai_cannot_bypass_approval_for_optimization_agent(db_session, monkeypatc
     assert run.status == OrchestrationRunStatus.PAUSED_FOR_APPROVAL
 
 
-def test_non_sensitive_agent_still_auto_executes_without_over_correction(db_session, monkeypatch):
+def test_non_sensitive_agent_still_auto_executes_without_over_correction(db_session, seeded_plans, monkeypatch):
     """A genuinely non-sensitive agent must still run normally - the fix
     must not pause every step regardless of sensitivity."""
     org, user, _ = _seed_org_and_campaign(db_session)
@@ -109,7 +109,7 @@ def test_non_sensitive_agent_still_auto_executes_without_over_correction(db_sess
     assert run.status == OrchestrationRunStatus.COMPLETED
 
 
-def test_plan_can_still_add_approval_for_a_normally_safe_agent(db_session, monkeypatch):
+def test_plan_can_still_add_approval_for_a_normally_safe_agent(db_session, seeded_plans, monkeypatch):
     """The plan's own requires_approval: true must still be honored even
     for a non-structurally-sensitive agent - the fix is additive, not a
     replacement of the plan's own flag."""

@@ -99,7 +99,7 @@ def test_list_agents_requires_can_execute_ai_actions(client, seeded_roles):
     assert resp.status_code == 403
 
 
-def test_run_marketing_strategy_agent_succeeds(client, seeded_roles, monkeypatch):
+def test_run_marketing_strategy_agent_succeeds(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider("Here is your marketing strategy..."))
     headers = _register_and_org_headers(client)
 
@@ -130,7 +130,7 @@ def test_run_ad_copy_agent_without_brief_fails_cleanly(client, seeded_roles, mon
     assert len(calls) == 0  # never reached the AI provider
 
 
-def test_run_ad_copy_agent_with_brief_succeeds(client, seeded_roles, monkeypatch):
+def test_run_ad_copy_agent_with_brief_succeeds(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider("Headline: Light Up Your Home"))
     headers = _register_and_org_headers(client)
 
@@ -149,7 +149,7 @@ def test_run_unknown_agent_returns_404(client, seeded_roles):
     assert resp.status_code == 404
 
 
-def test_running_agent_records_usage(client, seeded_roles, db_session, monkeypatch):
+def test_running_agent_records_usage(client, seeded_roles, seeded_plans, db_session, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider("Strategy output", input_tokens=40, output_tokens=80))
     headers = _register_and_org_headers(client)
 

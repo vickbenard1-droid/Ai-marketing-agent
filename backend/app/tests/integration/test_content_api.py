@@ -243,7 +243,7 @@ def test_delete_content_requires_can_manage_content(client, seeded_roles, seeded
 # --------------------------------------------------------------------------
 # Repurposing
 # --------------------------------------------------------------------------
-def test_repurpose_content_full_flow(client, seeded_roles, monkeypatch):
+def test_repurpose_content_full_flow(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_all_providers(monkeypatch, _mocked_provider_json(VALID_REPURPOSE_RESPONSE))
     headers = _register_and_org_headers(client)
 
@@ -271,7 +271,7 @@ def test_repurpose_requires_at_least_one_source(client, seeded_roles):
     assert resp.status_code == 400
 
 
-def test_get_repurpose_batch(client, seeded_roles, monkeypatch):
+def test_get_repurpose_batch(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_all_providers(monkeypatch, _mocked_provider_json(VALID_REPURPOSE_RESPONSE))
     headers = _register_and_org_headers(client)
     created = client.post(
@@ -286,7 +286,7 @@ def test_get_repurpose_batch(client, seeded_roles, monkeypatch):
 # --------------------------------------------------------------------------
 # SEO
 # --------------------------------------------------------------------------
-def test_generate_seo_full_flow(client, seeded_roles, monkeypatch):
+def test_generate_seo_full_flow(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_all_providers(monkeypatch, _mocked_provider_json(VALID_SEO_RESPONSE))
     headers = _register_and_org_headers(client)
 

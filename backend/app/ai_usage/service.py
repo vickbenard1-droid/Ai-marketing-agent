@@ -6,6 +6,14 @@ agent and the chat service should call generate_and_track() (not
 provider.generate() directly) so no call site can forget to log usage.
 This mirrors the same "one required entry point" pattern as
 app.audit.service.write_audit_log().
+
+Week 12: this is ALSO the single chokepoint where the real
+app.billing.service AI-token usage limit is enforced - because every
+real AI call in this app already routes through generate_and_track
+(verified during the Week 12 monitoring review: no call site anywhere
+calls provider.generate() directly), wiring the check in here
+automatically covers all 15+ real call sites across every agent built
+across all 11 weeks, without needing to touch any of them individually.
 """
 import time
 import uuid
@@ -14,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.ai_providers.base import AICompletionResult, AIMessage, AIProvider, AIProviderError
 from app.ai_providers.factory import estimate_cost_usd
+from app.billing.service import check_limit
 from app.models.ai_usage_log import AIUsageLog, AIUsageSource
 
 
@@ -80,6 +89,15 @@ def generate_and_track(
     the caller commits as part of its own transaction, so the usage log
     row is atomic with whatever else that request does.
     """
+    # The real input token count for THIS call isn't known before it
+    # runs, so the limit check uses max_tokens (the requested ceiling)
+    # as a conservative estimate - this can occasionally be more
+    # cautious than the call would have actually needed, but that's the
+    # correct direction to err in for a limit gate: never let a call
+    # through that risks exceeding the org's real limit, even if actual
+    # usage would have stayed under it.
+    check_limit(db, organization_id=organization_id, category="ai_tokens", additional=max_tokens)
+
     started = time.monotonic()
     try:
         result = provider.generate(

@@ -44,7 +44,7 @@ def _patch_provider(monkeypatch, provider):
     monkeypatch.setattr("app.ai_chat.service.get_ai_provider_for_task", lambda task: provider)
 
 
-def test_send_message_creates_conversation(client, seeded_roles, monkeypatch):
+def test_send_message_creates_conversation(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider("Your best customers are home decor shoppers."))
     headers = _register_and_org_headers(client)
 
@@ -58,7 +58,7 @@ def test_send_message_creates_conversation(client, seeded_roles, monkeypatch):
     assert body["conversation_id"]
 
 
-def test_send_message_continues_existing_conversation(client, seeded_roles, monkeypatch):
+def test_send_message_continues_existing_conversation(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider("First reply"))
     headers = _register_and_org_headers(client)
 
@@ -115,7 +115,7 @@ def test_send_message_requires_can_execute_ai_actions(client, seeded_roles):
     assert resp.status_code == 403
 
 
-def test_list_conversations(client, seeded_roles, monkeypatch):
+def test_list_conversations(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider("reply"))
     headers = _register_and_org_headers(client)
 
@@ -155,7 +155,7 @@ def test_list_conversations_does_not_require_ai_permission(client, seeded_roles)
     assert resp.status_code == 200
 
 
-def test_get_conversation_detail_includes_messages(client, seeded_roles, monkeypatch):
+def test_get_conversation_detail_includes_messages(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider("The reply"))
     headers = _register_and_org_headers(client)
 
@@ -172,7 +172,7 @@ def test_get_conversation_detail_includes_messages(client, seeded_roles, monkeyp
     assert body["messages"][1]["content"] == "The reply"
 
 
-def test_conversations_isolated_across_organizations(client, seeded_roles, monkeypatch):
+def test_conversations_isolated_across_organizations(client, seeded_roles, seeded_plans, monkeypatch):
     """Tenant isolation: org A's conversations must never be visible to org B."""
     _patch_provider(monkeypatch, _mocked_claude_provider("reply"))
     org_a_headers = _register_and_org_headers(client)
@@ -192,7 +192,7 @@ def test_conversations_isolated_across_organizations(client, seeded_roles, monke
     assert resp.status_code == 404
 
 
-def test_chat_records_usage(client, seeded_roles, db_session, monkeypatch):
+def test_chat_records_usage(client, seeded_roles, seeded_plans, db_session, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider("reply"))
     headers = _register_and_org_headers(client)
 

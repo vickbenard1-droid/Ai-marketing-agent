@@ -49,7 +49,7 @@ def test_usage_summary_empty_before_any_ai_call(client, seeded_roles):
     assert body["total_estimated_cost_usd"] is None
 
 
-def test_usage_summary_aggregates_across_agent_and_chat_calls(client, seeded_roles, monkeypatch):
+def test_usage_summary_aggregates_across_agent_and_chat_calls(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider("output", input_tokens=100, output_tokens=200))
     headers = _register_and_org_headers(client)
 
@@ -93,7 +93,7 @@ def test_usage_summary_does_not_require_ai_permission(client, seeded_roles):
     assert resp.status_code == 200
 
 
-def test_usage_summary_isolated_across_organizations(client, seeded_roles, monkeypatch):
+def test_usage_summary_isolated_across_organizations(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider("output"))
     org_a_headers = _register_and_org_headers(client)
     org_b_headers = _register_and_org_headers(client)

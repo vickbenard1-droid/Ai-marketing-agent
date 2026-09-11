@@ -39,7 +39,7 @@ def test_list_available_agents(client, seeded_roles):
     assert "advertising_agent" in names
 
 
-def test_create_and_list_runs(client, seeded_roles, monkeypatch):
+def test_create_and_list_runs(client, seeded_roles, seeded_plans, monkeypatch):
     org_headers = _register_org(client)
     plan = {"steps": [{"agent_name": "analytics_agent", "action_description": "Review performance", "requires_approval": False}], "plan_summary": "Review then report"}
     _mock_plan(monkeypatch, plan)
@@ -54,7 +54,7 @@ def test_create_and_list_runs(client, seeded_roles, monkeypatch):
     assert len(list_resp.json()) == 1
 
 
-def test_advance_run_and_view_activity(client, seeded_roles, monkeypatch):
+def test_advance_run_and_view_activity(client, seeded_roles, seeded_plans, monkeypatch):
     org_headers = _register_org(client)
     plan = {"steps": [{"agent_name": "analytics_agent", "action_description": "Review performance", "requires_approval": False}], "plan_summary": "x"}
     _mock_plan(monkeypatch, plan)
@@ -72,7 +72,7 @@ def test_advance_run_and_view_activity(client, seeded_roles, monkeypatch):
     assert activity_resp.json()[0]["status"] == "completed"
 
 
-def test_advance_run_pauses_for_approval_step(client, seeded_roles, monkeypatch):
+def test_advance_run_pauses_for_approval_step(client, seeded_roles, seeded_plans, monkeypatch):
     org_headers = _register_org(client)
     plan = {"steps": [{"agent_name": "advertising_agent", "action_description": "Launch a campaign", "requires_approval": True}], "plan_summary": "x"}
     _mock_plan(monkeypatch, plan)
@@ -83,7 +83,7 @@ def test_advance_run_pauses_for_approval_step(client, seeded_roles, monkeypatch)
     assert advance_resp.json()["status"] == "paused_for_approval"
 
 
-def test_reject_paused_step_cancels_run(client, seeded_roles, monkeypatch):
+def test_reject_paused_step_cancels_run(client, seeded_roles, seeded_plans, monkeypatch):
     org_headers = _register_org(client)
     plan = {"steps": [{"agent_name": "advertising_agent", "action_description": "Launch a campaign", "requires_approval": True}], "plan_summary": "x"}
     _mock_plan(monkeypatch, plan)
@@ -96,7 +96,7 @@ def test_reject_paused_step_cancels_run(client, seeded_roles, monkeypatch):
     assert reject_resp.json()["status"] == "cancelled"
 
 
-def test_org_wide_activity_and_memory_endpoints_reachable(client, seeded_roles, monkeypatch):
+def test_org_wide_activity_and_memory_endpoints_reachable(client, seeded_roles, seeded_plans, monkeypatch):
     org_headers = _register_org(client)
     plan = {"steps": [{"agent_name": "analytics_agent", "action_description": "Review", "requires_approval": False}], "plan_summary": "x"}
     _mock_plan(monkeypatch, plan)
@@ -116,7 +116,7 @@ def test_org_wide_activity_and_memory_endpoints_reachable(client, seeded_roles, 
     assert "business_knowledge" in memory_resp.json()
 
 
-def test_runs_isolated_across_organizations(client, seeded_roles, monkeypatch):
+def test_runs_isolated_across_organizations(client, seeded_roles, seeded_plans, monkeypatch):
     org_a_headers = _register_org(client)
     org_b_headers = _register_org(client)
     plan = {"steps": [{"agent_name": "analytics_agent", "action_description": "x", "requires_approval": False}], "plan_summary": "x"}
