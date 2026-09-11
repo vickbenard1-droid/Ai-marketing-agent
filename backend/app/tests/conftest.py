@@ -64,6 +64,31 @@ def seeded_roles(db_session):
 
 
 @pytest.fixture()
+def seeded_plans(db_session):
+    """
+    Seeds the same 4 system subscription plans as app.db.seed_plans,
+    using the test session. Week 12: app.billing.service.check_limit
+    fails CLOSED with a real RuntimeError if no 'free' SubscriptionPlan
+    exists at all (never silently treats a missing plan as unlimited) -
+    any test that exercises a billing-gated call site (content
+    generation, and other categories as they're wired in) needs this
+    fixture, same as seeded_roles is needed for anything touching
+    permissions.
+    """
+    from app.db.seed_plans import SYSTEM_PLANS
+    from app.models.subscription_plan import SubscriptionPlan
+
+    plans = {}
+    for plan_data in SYSTEM_PLANS:
+        plan = SubscriptionPlan(**plan_data)
+        db_session.add(plan)
+        db_session.flush()
+        plans[plan_data["name"]] = plan
+    db_session.commit()
+    return plans
+
+
+@pytest.fixture()
 def client(db_session):
     """FastAPI TestClient with the DB dependency overridden to use db_session."""
     from fastapi.testclient import TestClient

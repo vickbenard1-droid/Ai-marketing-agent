@@ -18,6 +18,7 @@ from app.ai_providers.base import AIMessage, AIProviderError, AITaskType
 from app.ai_providers.factory import get_ai_provider_for_task
 from app.ai_usage.service import generate_and_track
 from app.audit.service import write_audit_log
+from app.billing.service import check_limit
 from app.content.brand_voice_helper import (
     build_brand_voice_instruction,
     build_source_material,
@@ -46,6 +47,8 @@ def generate_content(
     source_url: str | None = None,
     source_asset_id: uuid.UUID | None = None,
 ) -> Content:
+    check_limit(db, organization_id=organization_id, category="content_generations")
+
     knowledge = get_business_knowledge(db, organization_id)
 
     source_asset = None

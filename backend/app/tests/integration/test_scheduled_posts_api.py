@@ -132,7 +132,7 @@ def _create_content(client, headers, monkeypatch):
     return resp.json()["id"]
 
 
-def test_create_and_schedule_post_full_flow(client, seeded_roles, monkeypatch):
+def test_create_and_schedule_post_full_flow(client, seeded_roles, seeded_plans, monkeypatch):
     headers = _register_and_org_headers(client)
     account_id, _ = _connect_facebook_account(client, headers, monkeypatch)
     content_id = _create_content(client, headers, monkeypatch)
@@ -156,7 +156,7 @@ def test_create_and_schedule_post_full_flow(client, seeded_roles, monkeypatch):
     assert scheduled.json()["scheduled_for"] is not None
 
 
-def test_cannot_schedule_in_the_past(client, seeded_roles, monkeypatch):
+def test_cannot_schedule_in_the_past(client, seeded_roles, seeded_plans, monkeypatch):
     headers = _register_and_org_headers(client)
     account_id, _ = _connect_facebook_account(client, headers, monkeypatch)
     content_id = _create_content(client, headers, monkeypatch)
@@ -174,7 +174,7 @@ def test_cannot_schedule_in_the_past(client, seeded_roles, monkeypatch):
     assert resp.status_code == 400
 
 
-def test_publish_now_dispatches_real_task_and_publishes(client, seeded_roles, db_session, monkeypatch):
+def test_publish_now_dispatches_real_task_and_publishes(client, seeded_roles, seeded_plans, db_session, monkeypatch):
     TestSessionLocal = sessionmaker(bind=db_session.get_bind())
     monkeypatch.setattr(tasks, "SessionLocal", TestSessionLocal)
 
@@ -198,7 +198,7 @@ def test_publish_now_dispatches_real_task_and_publishes(client, seeded_roles, db
     assert resp.json()["external_post_id"] == "fb_post_123"
 
 
-def test_retry_only_works_on_failed_posts(client, seeded_roles, db_session, monkeypatch):
+def test_retry_only_works_on_failed_posts(client, seeded_roles, seeded_plans, db_session, monkeypatch):
     TestSessionLocal = sessionmaker(bind=db_session.get_bind())
     monkeypatch.setattr(tasks, "SessionLocal", TestSessionLocal)
 
@@ -216,7 +216,7 @@ def test_retry_only_works_on_failed_posts(client, seeded_roles, db_session, monk
     assert resp.status_code == 400
 
 
-def test_scheduled_posts_require_can_manage_content_to_create(client, seeded_roles, monkeypatch):
+def test_scheduled_posts_require_can_manage_content_to_create(client, seeded_roles, seeded_plans, monkeypatch):
     owner_headers = _register_and_org_headers(client)
     org_id = owner_headers["X-Organization-Id"]
     account_id, _ = _connect_facebook_account(client, owner_headers, monkeypatch)
@@ -231,7 +231,7 @@ def test_scheduled_posts_require_can_manage_content_to_create(client, seeded_rol
     assert resp.status_code == 403
 
 
-def test_list_scheduled_posts_requires_only_membership(client, seeded_roles, monkeypatch):
+def test_list_scheduled_posts_requires_only_membership(client, seeded_roles, seeded_plans, monkeypatch):
     owner_headers = _register_and_org_headers(client)
     org_id = owner_headers["X-Organization-Id"]
     account_id, _ = _connect_facebook_account(client, owner_headers, monkeypatch)
@@ -248,7 +248,7 @@ def test_list_scheduled_posts_requires_only_membership(client, seeded_roles, mon
     assert len(resp.json()) == 1
 
 
-def test_scheduled_posts_isolated_across_organizations(client, seeded_roles, monkeypatch):
+def test_scheduled_posts_isolated_across_organizations(client, seeded_roles, seeded_plans, monkeypatch):
     org_a_headers = _register_and_org_headers(client)
     org_b_headers = _register_and_org_headers(client)
     account_id, _ = _connect_facebook_account(client, org_a_headers, monkeypatch)
@@ -263,7 +263,7 @@ def test_scheduled_posts_isolated_across_organizations(client, seeded_roles, mon
     assert len(org_b_list) == 0
 
 
-def test_cannot_create_post_on_disconnected_account(client, seeded_roles, monkeypatch):
+def test_cannot_create_post_on_disconnected_account(client, seeded_roles, seeded_plans, monkeypatch):
     headers = _register_and_org_headers(client)
     account_id, _ = _connect_facebook_account(client, headers, monkeypatch)
     content_id = _create_content(client, headers, monkeypatch)
@@ -278,7 +278,7 @@ def test_cannot_create_post_on_disconnected_account(client, seeded_roles, monkey
     assert resp.status_code == 400
 
 
-def test_recommend_and_accept_recommendation_flow(client, seeded_roles, monkeypatch):
+def test_recommend_and_accept_recommendation_flow(client, seeded_roles, seeded_plans, monkeypatch):
     headers = _register_and_org_headers(client)
     account_id, _ = _connect_facebook_account(client, headers, monkeypatch)
     content_id = _create_content(client, headers, monkeypatch)

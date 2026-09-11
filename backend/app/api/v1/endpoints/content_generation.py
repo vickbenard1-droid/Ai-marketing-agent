@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_permission
+from app.billing.service import UsageLimitExceededError
 from app.content.generation_service import ContentGenerationError, generate_content
 from app.content.repurpose_service import RepurposeError, repurpose_content
 from app.content.seo_service import SEOGenerationError, generate_seo
@@ -49,6 +50,8 @@ def generate_content_endpoint(
             source_url=payload.source_url,
             source_asset_id=payload.source_asset_id,
         )
+    except UsageLimitExceededError as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e))
     except ContentGenerationError as e:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(e))
 

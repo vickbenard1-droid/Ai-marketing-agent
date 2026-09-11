@@ -105,7 +105,7 @@ def _add_member_with_role(client, owner_headers, org_id, role_name):
 # --------------------------------------------------------------------------
 # Content generation
 # --------------------------------------------------------------------------
-def test_generate_content_full_flow(client, seeded_roles, monkeypatch):
+def test_generate_content_full_flow(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_all_providers(monkeypatch, _mocked_provider_text("Unwind with our lavender candle."))
     headers = _register_and_org_headers(client)
 
@@ -135,7 +135,7 @@ def test_generate_content_requires_can_execute_ai_actions(client, seeded_roles, 
     assert resp.status_code == 403
 
 
-def test_generate_content_records_usage(client, seeded_roles, db_session, monkeypatch):
+def test_generate_content_records_usage(client, seeded_roles, seeded_plans, db_session, monkeypatch):
     _patch_all_providers(monkeypatch, _mocked_provider_text("output", input_tokens=50, output_tokens=80))
     headers = _register_and_org_headers(client)
 
@@ -165,7 +165,7 @@ def test_generate_content_rejects_bad_url_scheme(client, seeded_roles):
 # --------------------------------------------------------------------------
 # Content CRUD
 # --------------------------------------------------------------------------
-def test_list_content_with_filters(client, seeded_roles, monkeypatch):
+def test_list_content_with_filters(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_all_providers(monkeypatch, _mocked_provider_text("Post about candles"))
     headers = _register_and_org_headers(client)
     client.post(
@@ -188,7 +188,7 @@ def test_list_content_with_filters(client, seeded_roles, monkeypatch):
     assert len(resp4.json()) == 0
 
 
-def test_update_and_approve_content(client, seeded_roles, monkeypatch):
+def test_update_and_approve_content(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_all_providers(monkeypatch, _mocked_provider_text("Original body"))
     headers = _register_and_org_headers(client)
     created = client.post(
@@ -211,7 +211,7 @@ def test_update_and_approve_content(client, seeded_roles, monkeypatch):
     assert cannot_edit.status_code == 400
 
 
-def test_content_isolated_across_organizations(client, seeded_roles, monkeypatch):
+def test_content_isolated_across_organizations(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_all_providers(monkeypatch, _mocked_provider_text("output"))
     org_a_headers = _register_and_org_headers(client)
     org_b_headers = _register_and_org_headers(client)
@@ -227,7 +227,7 @@ def test_content_isolated_across_organizations(client, seeded_roles, monkeypatch
     assert len(org_b_list) == 0
 
 
-def test_delete_content_requires_can_manage_content(client, seeded_roles, monkeypatch):
+def test_delete_content_requires_can_manage_content(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_all_providers(monkeypatch, _mocked_provider_text("output"))
     owner_headers = _register_and_org_headers(client)
     org_id = owner_headers["X-Organization-Id"]
@@ -300,7 +300,7 @@ def test_generate_seo_full_flow(client, seeded_roles, monkeypatch):
     assert "search_volume" not in body
 
 
-def test_generate_seo_linked_to_content(client, seeded_roles, monkeypatch):
+def test_generate_seo_linked_to_content(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_all_providers(monkeypatch, _mocked_provider_text("Blog content"))
     headers = _register_and_org_headers(client)
     content = client.post(
