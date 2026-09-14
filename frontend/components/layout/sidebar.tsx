@@ -17,6 +17,7 @@ import {
   Gauge,
   Users2,
   Workflow,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { OrgSwitcher } from "./org-switcher";
@@ -40,6 +41,7 @@ const NAV_ITEMS = [
   { label: "Leads", href: "/leads", icon: Users2, enabled: true },
   { label: "Integrations", href: "/integrations", icon: Plug, enabled: true },
   { label: "Team", href: "/team", icon: Users, enabled: true },
+  { label: "Billing", href: "/billing", icon: CreditCard, enabled: true },
 ] as const;
 
 export function Sidebar() {

@@ -1789,3 +1789,40 @@ export interface RelevantMemoryPublic {
 export function getRelevantMemory(accessToken: string, organizationId: string, days = 30) {
   return apiFetch<RelevantMemoryPublic>(`/orchestrator/memory?days=${days}`, { accessToken, organizationId });
 }
+
+// ---- Billing (Week 12) --------------------------------------------------------
+
+export interface SubscriptionPlanPublic {
+  id: string;
+  name: string;
+  display_name: string;
+  monthly_price_cents: number;
+  max_ai_tokens_per_month: number | null;
+  max_campaigns: number | null;
+  max_connected_accounts: number | null;
+  max_content_generations_per_month: number | null;
+  max_automated_actions_per_month: number | null;
+}
+
+export interface UsageCategoryPublic {
+  category: string;
+  current: number;
+  limit: number | null;
+}
+
+export interface CurrentPlanAndUsagePublic {
+  plan: SubscriptionPlanPublic;
+  usage: UsageCategoryPublic[];
+}
+
+export function listSubscriptionPlans(accessToken: string) {
+  return apiFetch<SubscriptionPlanPublic[]>("/billing/plans", { accessToken });
+}
+
+export function getCurrentPlanAndUsage(accessToken: string, organizationId: string) {
+  return apiFetch<CurrentPlanAndUsagePublic>("/billing/current", { accessToken, organizationId });
+}
+
+export function changePlan(accessToken: string, organizationId: string, planName: string) {
+  return apiFetch<SubscriptionPlanPublic>("/billing/change-plan", { method: "POST", accessToken, organizationId, body: JSON.stringify({ plan_name: planName }) });
+}
