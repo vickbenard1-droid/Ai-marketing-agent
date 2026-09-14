@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     ai_usage,
     analytics,
     auth,
+    billing,
     business_profile,
     campaign_generation,
     campaigns,
@@ -40,6 +41,7 @@ api_router.include_router(dashboard.router)
 api_router.include_router(agents.router)
 api_router.include_router(chat.router)
 api_router.include_router(ai_usage.router)
+api_router.include_router(billing.router)
 api_router.include_router(campaigns.router)
 api_router.include_router(campaign_generation.router)
 api_router.include_router(experiments.router)
