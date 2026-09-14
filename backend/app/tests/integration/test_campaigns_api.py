@@ -136,7 +136,7 @@ def _create_draft(client, headers, **overrides):
 # --------------------------------------------------------------------------
 # CRUD + RBAC
 # --------------------------------------------------------------------------
-def test_create_campaign_draft(client, seeded_roles):
+def test_create_campaign_draft(client, seeded_roles, seeded_plans):
     headers = _register_and_org_headers(client)
     resp = _create_draft(client, headers)
     assert resp.status_code == 201
@@ -155,7 +155,7 @@ def test_create_campaign_requires_can_manage_campaigns(client, seeded_roles):
     assert resp.status_code == 403
 
 
-def test_list_campaigns_only_requires_membership(client, seeded_roles):
+def test_list_campaigns_only_requires_membership(client, seeded_roles, seeded_plans):
     owner_headers = _register_and_org_headers(client)
     org_id = owner_headers["X-Organization-Id"]
     _create_draft(client, owner_headers)
@@ -166,7 +166,7 @@ def test_list_campaigns_only_requires_membership(client, seeded_roles):
     assert len(resp.json()) == 1
 
 
-def test_get_campaign_detail(client, seeded_roles):
+def test_get_campaign_detail(client, seeded_roles, seeded_plans):
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
 
@@ -184,7 +184,7 @@ def test_get_campaign_not_found(client, seeded_roles):
     assert resp.status_code == 404
 
 
-def test_campaigns_isolated_across_organizations(client, seeded_roles):
+def test_campaigns_isolated_across_organizations(client, seeded_roles, seeded_plans):
     org_a_headers = _register_and_org_headers(client)
     org_b_headers = _register_and_org_headers(client)
     created = _create_draft(client, org_a_headers).json()
@@ -196,7 +196,7 @@ def test_campaigns_isolated_across_organizations(client, seeded_roles):
     assert len(org_b_list) == 0
 
 
-def test_update_campaign_draft(client, seeded_roles):
+def test_update_campaign_draft(client, seeded_roles, seeded_plans):
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
 
@@ -207,7 +207,7 @@ def test_update_campaign_draft(client, seeded_roles):
     assert resp.json()["product_name"] == "Updated name"
 
 
-def test_delete_campaign_draft(client, seeded_roles):
+def test_delete_campaign_draft(client, seeded_roles, seeded_plans):
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
 
@@ -236,7 +236,7 @@ def test_generate_campaign_full_flow(client, seeded_roles, seeded_plans, monkeyp
     assert body["strategy"]["budget_strategy"]["ad_set_count"] == 3
 
 
-def test_generate_campaign_requires_can_execute_ai_actions(client, seeded_roles, monkeypatch):
+def test_generate_campaign_requires_can_execute_ai_actions(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
     owner_headers = _register_and_org_headers(client)
     org_id = owner_headers["X-Organization-Id"]
@@ -318,7 +318,7 @@ def test_edit_ad_copy_variant(client, seeded_roles, seeded_plans, monkeypatch):
     assert resp.json()["is_edited"] is True
 
 
-def test_approve_campaign_requires_generated_status(client, seeded_roles):
+def test_approve_campaign_requires_generated_status(client, seeded_roles, seeded_plans):
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
 
@@ -387,7 +387,7 @@ def test_create_experiment_with_unknown_variant_id_fails(client, seeded_roles, s
     assert resp.status_code == 400
 
 
-def test_create_audience_experiment_with_freeform_strings(client, seeded_roles):
+def test_create_audience_experiment_with_freeform_strings(client, seeded_roles, seeded_plans):
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
 
@@ -403,7 +403,7 @@ def test_create_audience_experiment_with_freeform_strings(client, seeded_roles):
     assert resp.status_code == 201
 
 
-def test_list_experiments(client, seeded_roles):
+def test_list_experiments(client, seeded_roles, seeded_plans):
     headers = _register_and_org_headers(client)
     created = _create_draft(client, headers).json()
     client.post(
@@ -455,7 +455,7 @@ def test_content_manager_can_generate_despite_lacking_campaign_management_permis
     assert resp.status_code == 200
 
 
-def test_generate_campaign_isolated_across_organizations(client, seeded_roles, monkeypatch):
+def test_generate_campaign_isolated_across_organizations(client, seeded_roles, seeded_plans, monkeypatch):
     _patch_provider(monkeypatch, _mocked_claude_provider(VALID_CAMPAIGN_RESPONSE))
     org_a_headers = _register_and_org_headers(client)
     org_b_headers = _register_and_org_headers(client)

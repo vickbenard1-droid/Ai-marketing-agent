@@ -120,7 +120,7 @@ def test_start_connect_unconfigured_platform_fails_clearly(client, seeded_roles)
 
 
 def test_full_connect_flow_via_real_http_including_unauthenticated_callback(
-    client, seeded_roles, db_session, monkeypatch
+    client, seeded_roles, seeded_plans, db_session, monkeypatch
 ):
     """
     The core test: start a connect flow as an authenticated user, then
@@ -177,7 +177,7 @@ def test_callback_with_invalid_state_is_rejected(client, seeded_roles, monkeypat
     assert "error=" in resp.headers["location"]
 
 
-def test_callback_state_cannot_be_replayed(client, seeded_roles, monkeypatch):
+def test_callback_state_cannot_be_replayed(client, seeded_roles, seeded_plans, monkeypatch):
     monkeypatch.setattr(settings, "LINKEDIN_CLIENT_ID", "test-id")
     monkeypatch.setattr(settings, "LINKEDIN_CLIENT_SECRET", "test-secret")
     headers = _register_and_org_headers(client)
@@ -204,7 +204,7 @@ def test_callback_state_cannot_be_replayed(client, seeded_roles, monkeypatch):
     assert "error=" in second.headers["location"]
 
 
-def test_disconnect_account(client, seeded_roles, monkeypatch):
+def test_disconnect_account(client, seeded_roles, seeded_plans, monkeypatch):
     monkeypatch.setattr(settings, "LINKEDIN_CLIENT_ID", "test-id")
     monkeypatch.setattr(settings, "LINKEDIN_CLIENT_SECRET", "test-secret")
     headers = _register_and_org_headers(client)
@@ -232,7 +232,7 @@ def test_disconnect_account(client, seeded_roles, monkeypatch):
     assert len(list_resp.json()) == 0
 
 
-def test_reauthorize_account_returns_a_fresh_authorize_url(client, seeded_roles, monkeypatch):
+def test_reauthorize_account_returns_a_fresh_authorize_url(client, seeded_roles, seeded_plans, monkeypatch):
     """The one route in this file that had no test at all: reauthorize
     should return a real, usable authorize_url for a person to
     re-connect an account whose token may have expired or been
@@ -263,7 +263,7 @@ def test_reauthorize_account_returns_a_fresh_authorize_url(client, seeded_roles,
     assert reauthorize_resp.json()["authorize_url"].startswith("http")
 
 
-def test_connected_accounts_isolated_across_organizations(client, seeded_roles, monkeypatch):
+def test_connected_accounts_isolated_across_organizations(client, seeded_roles, seeded_plans, monkeypatch):
     monkeypatch.setattr(settings, "LINKEDIN_CLIENT_ID", "test-id")
     monkeypatch.setattr(settings, "LINKEDIN_CLIENT_SECRET", "test-secret")
     org_a_headers = _register_and_org_headers(client)

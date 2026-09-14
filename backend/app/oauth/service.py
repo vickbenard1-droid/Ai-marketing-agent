@@ -29,6 +29,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.audit.service import write_audit_log
+from app.billing.service import check_limit
 from app.core.config import settings
 from app.core.security import decrypt_secret, encrypt_secret
 from app.models.connected_account import ConnectedAccount, ConnectionStatus
@@ -229,6 +230,11 @@ def handle_callback(
         )
         .first()
     )
+
+    if not existing:
+        # Only check the limit for a genuinely NEW connection - reconnecting
+        # an already-counted account must never be blocked by its own limit.
+        check_limit(db, organization_id=oauth_state.organization_id, category="connected_accounts")
 
     account = existing or ConnectedAccount(
         organization_id=oauth_state.organization_id,

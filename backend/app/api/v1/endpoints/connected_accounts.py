@@ -22,6 +22,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_org_member, require_permission
+from app.billing.service import UsageLimitExceededError
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.organization import OrganizationMember
@@ -106,6 +107,8 @@ def oauth_callback(
         return RedirectResponse(
             url=f"{settings.FRONTEND_BASE_URL}/integrations?connected={account.platform.value}"
         )
+    except UsageLimitExceededError as e:
+        return RedirectResponse(url=f"{settings.FRONTEND_BASE_URL}/integrations?error={e}")
     except OAuthFlowError as e:
         return RedirectResponse(url=f"{settings.FRONTEND_BASE_URL}/integrations?error={e}")
 

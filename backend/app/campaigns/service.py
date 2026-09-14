@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session, selectinload
 
 from app.audit.service import write_audit_log
+from app.billing.service import check_limit
 from app.models.ad_copy_variant import AdCopyVariant
 from app.models.campaign import Campaign, CampaignStatus
 
@@ -62,6 +63,8 @@ def create_campaign_draft(
     schema (see app/schemas/campaign.py::CampaignCreate) — this function
     just maps validated fields onto the model, it doesn't re-validate.
     """
+    check_limit(db, organization_id=organization_id, category="campaigns")
+
     campaign = Campaign(organization_id=organization_id, created_by_user_id=actor_user_id, **data)
     db.add(campaign)
     db.flush()

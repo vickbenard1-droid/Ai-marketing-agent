@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import get_current_org_member, require_permission
+from app.billing.service import UsageLimitExceededError
 from app.campaigns.service import (
     CampaignError,
     approve_campaign,
@@ -56,12 +57,15 @@ def create_campaign(
     member: OrganizationMember = Depends(require_permission("can_manage_campaigns")),
     db: Session = Depends(get_db),
 ):
-    return create_campaign_draft(
-        db,
-        organization_id=member.organization_id,
-        actor_user_id=member.user_id,
-        data=payload.model_dump(),
-    )
+    try:
+        return create_campaign_draft(
+            db,
+            organization_id=member.organization_id,
+            actor_user_id=member.user_id,
+            data=payload.model_dump(),
+        )
+    except UsageLimitExceededError as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e))
 
 
 @router.get("/{campaign_id}", response_model=CampaignDetail)
