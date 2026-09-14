@@ -22,6 +22,11 @@ RUN npm run build
 FROM base AS runtime
 ENV NODE_ENV=production
 
+# curl is not present in node:20-slim by default - installed explicitly
+# for the HEALTHCHECK below, same pattern as backend/Dockerfile.
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system app && useradd --system --gid app --no-create-home app
 
 COPY --from=builder /app/public ./public
@@ -33,4 +38,14 @@ RUN chown -R app:app /app
 USER app
 
 EXPOSE 3000
+
+# Found missing during the Week 12 deployment review - backend/Dockerfile
+# has always had a real HEALTHCHECK; this one never did. Checks the root
+# page rather than a dedicated /health route, since Next.js has no
+# built-in health endpoint and this app doesn't define one - a 200 here
+# means the Next.js server process is genuinely serving real HTTP
+# responses, not just that the container process is alive.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/ || exit 1
+
 CMD ["npm", "start"]
