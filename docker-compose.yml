@@ -6,6 +6,7 @@
 #
 # Usage: docker compose up
 # First run: docker compose exec backend python -m app.db.seed_roles
+#            docker compose exec backend python -m app.db.seed_plans
 #            docker compose exec backend alembic upgrade head
 
 name: ai-marketing-agent
