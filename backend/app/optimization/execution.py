@@ -29,6 +29,7 @@ from sqlalchemy.orm import Session
 import app.meta_ads.execution_service as meta_execution
 import app.optimization.safety as safety
 from app.audit.service import write_audit_log
+from app.billing.service import UsageLimitExceededError, check_limit
 from app.models.automated_action_log import AutomatedActionLog
 from app.models.campaign_autonomy_settings import AutonomyLevel, CampaignAutonomySettings
 from app.models.optimization_decision import DecisionStatus, OptimizationActionType, OptimizationDecision
@@ -100,6 +101,11 @@ def process_decision_autonomous(db: Session, *, organization_id: uuid.UUID, deci
         safety.AutonomyLevelInsufficientError, safety.DailyActionLimitExceededError,
         safety.BudgetIncreaseLimitExceededError, safety.DailySpendLimitExceededError,
     ) as exc:
+        raise AutonomousExecutionBlockedError(str(exc)) from exc
+
+    try:
+        check_limit(db, organization_id=organization_id, category="automated_actions")
+    except UsageLimitExceededError as exc:
         raise AutonomousExecutionBlockedError(str(exc)) from exc
 
     approval_request = _create_approval_request(db, organization_id=organization_id, requested_by_user_id=None, decision=decision)

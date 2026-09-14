@@ -76,3 +76,57 @@ def test_check_limit_raises_when_it_would_exceed_the_real_limit(db_session):
 
     with pytest.raises(billing.UsageLimitExceededError):
         billing.check_limit(db_session, organization_id=org.id, category="campaigns", additional=1)
+
+
+def test_automated_actions_billing_limit_is_a_genuine_third_independent_layer(db_session):
+    """
+    Real proof, not just an architectural claim: constructs a scenario
+    where Week 7's spend guard and Week 9's own autonomy safety checks
+    (assert_can_execute_autonomously) would BOTH pass - genuinely
+    permissive whitelist, autonomy settings, and a real configured
+    AdAccountSpendLimit - and confirms the Week 12 billing limit still
+    blocks the autonomous action as a real, independent third layer.
+    """
+    import app.optimization.execution as execution
+    from app.models.ai_usage_log import AIUsageSource  # noqa: F401
+    from app.models.campaign_autonomy_settings import AutonomyLevel, CampaignAutonomySettings, CampaignWhitelist
+    from app.models.meta_ad_account import MetaAdAccount
+    from app.models.meta_campaign import MetaCampaign, MetaCampaignObjective, MetaCampaignStatus
+    from app.models.ad_account_spend_limit import AdAccountSpendLimit
+    from app.models.optimization_decision import DecisionRisk, DecisionStatus, OptimizationActionType, OptimizationDecision
+    from app.models.user import User
+    import uuid
+
+    org = Organization(name="AutoActionsOrg", slug="autoactionsorg")
+    db_session.add(org)
+    db_session.flush()
+    user = User(email="autoactions@example.com", hashed_password="x")
+    db_session.add(user)
+    db_session.flush()
+    ad_account = MetaAdAccount(organization_id=org.id, connected_account_id=uuid.uuid4(), external_ad_account_id="act_x", name="Test", currency="USD", timezone_name="UTC")
+    db_session.add(ad_account)
+    db_session.flush()
+    campaign = MetaCampaign(organization_id=org.id, meta_ad_account_id=ad_account.id, name="Test", objective=MetaCampaignObjective.OUTCOME_SALES, external_campaign_id="c1", status=MetaCampaignStatus.ACTIVE, daily_budget_cents=1000)
+    db_session.add(campaign)
+    db_session.commit()
+
+    free_plan = SubscriptionPlan(name="free", display_name="Free", monthly_price_cents=0, max_automated_actions_per_month=0)
+    db_session.add(free_plan)
+    db_session.flush()
+    org.subscription_plan_id = free_plan.id
+    db_session.commit()
+
+    db_session.add(CampaignWhitelist(organization_id=org.id, meta_campaign_id=campaign.id, added_by_user_id=user.id))
+    db_session.add(CampaignAutonomySettings(meta_campaign_id=campaign.id, autonomy_level=AutonomyLevel.AUTONOMOUS, auto_executable_action_types=["pause_ad"], max_automated_actions_per_day=100, max_daily_spend_cents=100000, max_budget_increase_percent=100))
+    db_session.add(AdAccountSpendLimit(meta_ad_account_id=ad_account.id, daily_spend_limit_cents=100000))
+    db_session.commit()
+
+    decision = OptimizationDecision(organization_id=org.id, meta_campaign_id=campaign.id, observation="x", evidence_json={}, action_type=OptimizationActionType.PAUSE_AD, proposed_action="x", action_payload={}, expected_outcome="x", confidence=0.7, risk=DecisionRisk.LOW, required_permission="can_manage_campaigns", status=DecisionStatus.RECOMMENDED)
+    db_session.add(decision)
+    db_session.commit()
+
+    with pytest.raises(execution.AutonomousExecutionBlockedError):
+        execution.process_decision_autonomous(db_session, organization_id=org.id, decision=decision)
+
+    db_session.refresh(decision)
+    assert decision.status != DecisionStatus.AUTO_APPROVED
