@@ -56,6 +56,9 @@ jobs:
       - name: Seed system roles
         run: python -m app.db.seed_roles
 
+      - name: Seed subscription plans
+        run: python -m app.db.seed_plans
+
       - name: Run tests
         run: pytest --cov=app --cov-report=term-missing
 
