@@ -33,7 +33,22 @@ No `.env` file or running database is required — `app/tests/conftest.py`
 sets `SECRET_KEY`, `CREDENTIALS_ENCRYPTION_KEY`, and `DATABASE_URL` itself
 before any app module is imported.
 
-### What's covered (81 tests)
+### What's covered
+
+**As of Week 12, the real suite has grown to 266 tests across ~28 files
+covering all 12 weeks** — this doc's "What's covered" section below was
+written during Weeks 1-2 and was never updated as the suite grew; it
+accurately describes those two weeks' tests but should not be read as a
+complete picture of current coverage. For the real, current, and
+honestly-scoped picture — including what's covered, what turned out to
+be a false-positive gap on investigation, and what's explicitly still
+missing (permanent unit tests for individual service functions, payment
+tests, broader social publishing tests, non-Meta advertising integration
+tests) — see `docs/audit/TESTING_SUMMARY.md`, written during the Week 12
+production-readiness audit.
+
+The Week 1-2 detail below remains accurate for those two weeks and is
+kept for historical reference:
 
 **Week 1:**
 - **`test_security.py`** — password hashing round-trip and rejection, JWT
